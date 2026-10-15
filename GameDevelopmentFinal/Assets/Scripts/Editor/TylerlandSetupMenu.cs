@@ -1,0 +1,423 @@
+using UnityEngine;
+using UnityEditor;
+using System.IO;
+using Tylerland.Core;
+using Tylerland.Config;
+
+namespace Tylerland.Editor
+{
+    /// <summary>
+    /// Editor automation tool that sets up the project configs and scene hierarchy with 1 click.
+    /// Accessible via top menu bar: 'Tylerland'
+    /// </summary>
+    public static class TylerlandSetupMenu
+    {
+        private const string CONFIG_FOLDER = "Assets/ScriptableObjects";
+
+        [MenuItem("Tylerland/1. Generate Default Config Assets (Nights 1-6 & Economy)", false, 1)]
+        public static void GenerateDefaultConfigs()
+        {
+            if (!AssetDatabase.IsValidFolder(CONFIG_FOLDER))
+            {
+                AssetDatabase.CreateFolder("Assets", "ScriptableObjects");
+            }
+            if (!AssetDatabase.IsValidFolder(CONFIG_FOLDER + "/Nights"))
+            {
+                AssetDatabase.CreateFolder(CONFIG_FOLDER, "Nights");
+            }
+
+            // 1. Economy Config
+            string ecoPath = $"{CONFIG_FOLDER}/EconomyConfig.asset";
+            var ecoConfig = AssetDatabase.LoadAssetAtPath<EconomyConfig>(ecoPath);
+            if (ecoConfig == null)
+            {
+                ecoConfig = ScriptableObject.CreateInstance<EconomyConfig>();
+                AssetDatabase.CreateAsset(ecoConfig, ecoPath);
+                Debug.Log($"[Tylerland Editor] Created EconomyConfig at {ecoPath}");
+            }
+
+            // 2. Night Configs (From Roadmap Section 8.1 table)
+            int[] durations = { 60, 75, 90, 90, 90, 90 };
+            int[] tylerAI =   {  2,  4,  5,  7,  9, 10 };
+            int[] sharkAI =   {  0,  3,  5,  7,  9, 10 };
+            int[] eagleAI =   {  0,  0,  3,  6,  8, 10 };
+            int[] snakeAI =   {  0,  0,  0,  3,  7,  9 };
+            bool[] boss =     { false, false, false, false, false, true };
+
+            for (int i = 0; i < 6; i++)
+            {
+                int nightNum = i + 1;
+                string nightPath = $"{CONFIG_FOLDER}/Nights/Night_{nightNum}.asset";
+                var nightConfig = AssetDatabase.LoadAssetAtPath<NightConfig>(nightPath);
+                if (nightConfig == null)
+                {
+                    nightConfig = ScriptableObject.CreateInstance<NightConfig>();
+                    nightConfig.nightNumber = nightNum;
+                    nightConfig.realSecondsPerGameHour = durations[i];
+                    nightConfig.tylerAILevel = tylerAI[i];
+                    nightConfig.sharkAILevel = sharkAI[i];
+                    nightConfig.eagleAILevel = eagleAI[i];
+                    nightConfig.snakeAILevel = snakeAI[i];
+                    nightConfig.bossActive = boss[i];
+                    nightConfig.muteAllowed = nightNum >= 2;
+
+                    AssetDatabase.CreateAsset(nightConfig, nightPath);
+                    Debug.Log($"[Tylerland Editor] Created NightConfig at {nightPath}");
+                }
+            }
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            EditorUtility.DisplayDialog("Tylerland Setup", "Default Config assets (Nights 1-6 & Economy) generated successfully in Assets/ScriptableObjects/!", "OK");
+        }
+
+        [MenuItem("Tylerland/2. Setup Core Systems in Current Scene", false, 2)]
+        public static void SetupCoreSystemsInScene()
+        {
+            var existing = Object.FindFirstObjectByType<TylerlandBootstrap>();
+            GameObject coreObj;
+
+            if (existing != null)
+            {
+                coreObj = existing.gameObject;
+            }
+            else
+            {
+                coreObj = new GameObject("[GAME_CORE]");
+                Undo.RegisterCreatedObjectUndo(coreObj, "Create [GAME_CORE]");
+                coreObj.AddComponent<TylerlandBootstrap>();
+            }
+
+            // Wire all configs
+            ConnectConfigsToGameObject(coreObj);
+
+            Selection.activeGameObject = coreObj;
+            EditorUtility.DisplayDialog("Tylerland Setup", "Successfully wired all Phase 1 Core Systems and Night Configs on '[GAME_CORE]'!\n\nPress PLAY to test the shift clock and state machine.", "Let's Go!");
+        }
+
+        [MenuItem("Tylerland/3. Connect Configs to [GAME_CORE]", false, 3)]
+        public static void ConnectConfigsMenu()
+        {
+            var bootstrap = Object.FindFirstObjectByType<TylerlandBootstrap>();
+            if (bootstrap == null)
+            {
+                EditorUtility.DisplayDialog("Tylerland Setup", "No '[GAME_CORE]' found in active scene. Run 'Setup Core Systems in Current Scene' first.", "OK");
+                return;
+            }
+
+            ConnectConfigsToGameObject(bootstrap.gameObject);
+            EditorUtility.DisplayDialog("Tylerland Setup", "All Night Configs (1-6) & Economy Config connected successfully to '[GAME_CORE]'!", "OK");
+        }
+
+        private static void ConnectConfigsToGameObject(GameObject coreObj)
+        {
+            var bootstrap = coreObj.GetComponent<TylerlandBootstrap>();
+            if (bootstrap != null)
+            {
+                bootstrap.AutoFindAndAssignConfigs();
+            }
+
+            var eco = AssetDatabase.LoadAssetAtPath<EconomyConfig>($"{CONFIG_FOLDER}/EconomyConfig.asset");
+            if (eco != null)
+            {
+                var runMgr = coreObj.GetComponent<RunManager>();
+                if (runMgr != null)
+                {
+                    var prop = typeof(RunManager).GetField("_economyConfig", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                    if (prop != null) prop.SetValue(runMgr, eco);
+                    EditorUtility.SetDirty(runMgr);
+                }
+            }
+
+            EditorUtility.SetDirty(coreObj);
+        }
+
+        [MenuItem("Tylerland/4. Build Complete 3D Office Environment in Scene", false, 4)]
+        public static void Build3DOfficeEnvironment()
+        {
+            // 1. Root
+            var existingOffice = GameObject.Find("[OFFICE_ENVIRONMENT]");
+            if (existingOffice != null)
+            {
+                if (EditorUtility.DisplayDialog("Tylerland Setup", "An '[OFFICE_ENVIRONMENT]' already exists in this scene. Replace it?", "Replace", "Cancel"))
+                {
+                    Undo.DestroyObjectImmediate(existingOffice);
+                }
+                else return;
+            }
+
+            var officeRoot = new GameObject("[OFFICE_ENVIRONMENT]");
+            Undo.RegisterCreatedObjectUndo(officeRoot, "Build Complete 3D Office");
+
+            // 2. Room Structure (Floor, Ceiling, Light)
+            var floor = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            floor.name = "Floor";
+            floor.transform.SetParent(officeRoot.transform, false);
+            floor.transform.localPosition = new Vector3(0, -0.1f, 0);
+            floor.transform.localRotation = Quaternion.identity;
+            floor.transform.localScale = new Vector3(10f, 0.2f, 10f);
+
+            var ceiling = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            ceiling.name = "Ceiling";
+            ceiling.transform.SetParent(officeRoot.transform, false);
+            ceiling.transform.localPosition = new Vector3(0, 3.5f, 0);
+            ceiling.transform.localRotation = Quaternion.identity;
+            ceiling.transform.localScale = new Vector3(10f, 0.2f, 10f);
+
+            var lightObj = new GameObject("OfficeCeilingLight");
+            lightObj.transform.SetParent(officeRoot.transform, false);
+            lightObj.transform.localPosition = new Vector3(0, 3.0f, 0);
+            var light = lightObj.AddComponent<Light>();
+            light.type = LightType.Point;
+            light.range = 14f;
+            light.color = new Color(1f, 0.95f, 0.8f);
+            light.intensity = 1.3f;
+
+            // 3. Walls with Doorway Openings & Dark Corridor Tunnels
+            BuildOfficeWallsAndCorridors(officeRoot.transform);
+
+            // 4. Desk & Monitor
+            var desk = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            desk.name = "SecurityDesk";
+            desk.transform.SetParent(officeRoot.transform, false);
+            desk.transform.localPosition = new Vector3(0, 0.4f, 1.2f);
+            desk.transform.localRotation = Quaternion.identity;
+            desk.transform.localScale = new Vector3(2.6f, 0.8f, 1.0f);
+
+            var monitor = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            monitor.name = "DeskSecurityMonitor";
+            monitor.transform.SetParent(desk.transform, false);
+            monitor.transform.localPosition = new Vector3(0, 0.7f, 0);
+            monitor.transform.localRotation = Quaternion.identity;
+            monitor.transform.localScale = new Vector3(0.5f, 0.4f, 0.1f);
+
+            // 5. Doors (Left=Shark, Center=Tyler, Right=Eagle, Back=Snake)
+            var doorControllers = new Tylerland.Office.DoorController[4];
+
+            // Inward-facing door frames:
+            // Left (Shark): at X = -4.9, faces inward (+X) -> Y rotation = 90
+            doorControllers[0] = Create3DDoor(officeRoot.transform, 0, "Left Door (Shark)", new Vector3(-4.9f, 0, 0), Quaternion.Euler(0, 90f, 0));
+            // Center (Tyler): at Z = +4.9, faces inward (-Z) -> Y rotation = 180
+            doorControllers[1] = Create3DDoor(officeRoot.transform, 1, "Center Door (Tyler)", new Vector3(0, 0, 4.9f), Quaternion.Euler(0, 180f, 0));
+            // Right (Eagle): at X = +4.9, faces inward (-X) -> Y rotation = -90
+            doorControllers[2] = Create3DDoor(officeRoot.transform, 2, "Right Door (Eagle)", new Vector3(4.9f, 0, 0), Quaternion.Euler(0, -90f, 0));
+            // Back (Snake): at Z = -4.9, faces inward (+Z) -> Y rotation = 0
+            doorControllers[3] = Create3DDoor(officeRoot.transform, 3, "Back Door (Snake)", new Vector3(0, 0, -4.9f), Quaternion.Euler(0, 0f, 0));
+
+            // 6. Office Systems Managers
+            var officeMgrObj = new GameObject("[OFFICE_MANAGERS]");
+            officeMgrObj.transform.SetParent(officeRoot.transform, false);
+            var doorSys = officeMgrObj.AddComponent<Tylerland.Office.DoorSystemManager>();
+            var attackRes = officeMgrObj.AddComponent<Tylerland.Office.AttackResolver>();
+            var camSys = officeMgrObj.AddComponent<Tylerland.Office.CameraMonitorSystem>();
+            var phoneSys = officeMgrObj.AddComponent<Tylerland.Office.PhoneSystem>();
+            var hud = officeMgrObj.AddComponent<Tylerland.Office.OfficeHUD>();
+
+            // Wire doors into DoorSystemManager
+            var doorsField = typeof(Tylerland.Office.DoorSystemManager).GetField("_doors", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            if (doorsField != null) doorsField.SetValue(doorSys, doorControllers);
+
+            // 7. Camera setup
+            var mainCam = Camera.main;
+            if (mainCam == null)
+            {
+                var camObj = new GameObject("Main Camera");
+                mainCam = camObj.AddComponent<Camera>();
+                camObj.tag = "MainCamera";
+                camObj.AddComponent<AudioListener>();
+            }
+
+            mainCam.transform.position = new Vector3(0, 1.6f, 0);
+            mainCam.transform.rotation = Quaternion.identity;
+            var viewCtrl = mainCam.GetComponent<Tylerland.Office.PlayerViewController>();
+            if (viewCtrl == null)
+            {
+                viewCtrl = mainCam.gameObject.AddComponent<Tylerland.Office.PlayerViewController>();
+            }
+
+            UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene());
+
+            Selection.activeGameObject = officeRoot;
+            EditorUtility.DisplayDialog("Tylerland Setup", "3D Office Environment built successfully!\n\n- 4 Inward-Facing 3D Doors with Fixed Orientations\n- Realistic Corridor Tunnels & Blindspot Lights (Key 'F')\n- FNAF Non-recharging Door Charges (Charges do NOT load during the night)\n- First-Person 3D Look (A/D/S/W or Mouse Edge)\n- Security Tablet (Spacebar)\n\nPress PLAY to test!", "Awesome!");
+        }
+
+        private static void BuildOfficeWallsAndCorridors(Transform parent)
+        {
+            var wallsRoot = new GameObject("OfficeWallsAndCorridors");
+            wallsRoot.transform.SetParent(parent, false);
+
+            // NORTH WALL (Z = 5.0) with Center Doorway
+            CreateWallSection(wallsRoot.transform, "Wall_North_Left", new Vector3(-3.05f, 1.75f, 5.0f), new Vector3(3.9f, 3.5f, 0.2f));
+            CreateWallSection(wallsRoot.transform, "Wall_North_Right", new Vector3(3.05f, 1.75f, 5.0f), new Vector3(3.9f, 3.5f, 0.2f));
+            CreateWallSection(wallsRoot.transform, "Wall_North_Top", new Vector3(0f, 3.25f, 5.0f), new Vector3(2.2f, 0.5f, 0.2f));
+
+            // SOUTH WALL (Z = -5.0) with Back Doorway
+            CreateWallSection(wallsRoot.transform, "Wall_South_Left", new Vector3(-3.05f, 1.75f, -5.0f), new Vector3(3.9f, 3.5f, 0.2f));
+            CreateWallSection(wallsRoot.transform, "Wall_South_Right", new Vector3(3.05f, 1.75f, -5.0f), new Vector3(3.9f, 3.5f, 0.2f));
+            CreateWallSection(wallsRoot.transform, "Wall_South_Top", new Vector3(0f, 3.25f, -5.0f), new Vector3(2.2f, 0.5f, 0.2f));
+
+            // WEST WALL (X = -5.0) with Left Doorway
+            CreateWallSection(wallsRoot.transform, "Wall_West_Left", new Vector3(-5.0f, 1.75f, -3.05f), new Vector3(0.2f, 3.5f, 3.9f));
+            CreateWallSection(wallsRoot.transform, "Wall_West_Right", new Vector3(-5.0f, 1.75f, 3.05f), new Vector3(0.2f, 3.5f, 3.9f));
+            CreateWallSection(wallsRoot.transform, "Wall_West_Top", new Vector3(-5.0f, 3.25f, 0f), new Vector3(0.2f, 0.5f, 2.2f));
+
+            // EAST WALL (X = +5.0) with Right Doorway
+            CreateWallSection(wallsRoot.transform, "Wall_East_Left", new Vector3(5.0f, 1.75f, -3.05f), new Vector3(0.2f, 3.5f, 3.9f));
+            CreateWallSection(wallsRoot.transform, "Wall_East_Right", new Vector3(5.0f, 1.75f, 3.05f), new Vector3(0.2f, 3.5f, 3.9f));
+            CreateWallSection(wallsRoot.transform, "Wall_East_Top", new Vector3(5.0f, 3.25f, 0f), new Vector3(0.2f, 0.5f, 2.2f));
+
+            // CORRIDOR HALLWAY TUNNELS (West, East, North, South)
+            CreateCorridorTunnel(wallsRoot.transform, "Corridor_West_Shark", new Vector3(-8.0f, 1.75f, 0f), new Vector3(6.0f, 3.5f, 2.4f), true);
+            CreateCorridorTunnel(wallsRoot.transform, "Corridor_East_Eagle", new Vector3(8.0f, 1.75f, 0f), new Vector3(6.0f, 3.5f, 2.4f), true);
+            CreateCorridorTunnel(wallsRoot.transform, "Corridor_North_Tyler", new Vector3(0f, 1.75f, 8.0f), new Vector3(2.4f, 3.5f, 6.0f), false);
+            CreateCorridorTunnel(wallsRoot.transform, "Corridor_South_Snake", new Vector3(0f, 1.75f, -8.0f), new Vector3(2.4f, 3.5f, 6.0f), false);
+        }
+
+        private static void CreateWallSection(Transform parent, string name, Vector3 pos, Vector3 scale)
+        {
+            var wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            wall.name = name;
+            wall.transform.SetParent(parent, false);
+            wall.transform.localPosition = pos;
+            wall.transform.localRotation = Quaternion.identity;
+            wall.transform.localScale = scale;
+        }
+
+        private static void CreateCorridorTunnel(Transform parent, string name, Vector3 center, Vector3 size, bool runsEastWest)
+        {
+            var tunnel = new GameObject(name);
+            tunnel.transform.SetParent(parent, false);
+            tunnel.transform.localPosition = center;
+
+            // Tunnel Floor
+            var f = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            f.name = "Floor";
+            f.transform.SetParent(tunnel.transform, false);
+            f.transform.localPosition = new Vector3(0, -size.y / 2f, 0);
+            f.transform.localScale = new Vector3(size.x, 0.2f, size.z);
+
+            // Tunnel Ceiling
+            var c = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            c.name = "Ceiling";
+            c.transform.SetParent(tunnel.transform, false);
+            c.transform.localPosition = new Vector3(0, size.y / 2f, 0);
+            c.transform.localScale = new Vector3(size.x, 0.2f, size.z);
+
+            if (runsEastWest)
+            {
+                // Left & Right walls along Z
+                var w1 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                w1.name = "Wall_North";
+                w1.transform.SetParent(tunnel.transform, false);
+                w1.transform.localPosition = new Vector3(0, 0, size.z / 2f);
+                w1.transform.localScale = new Vector3(size.x, size.y, 0.2f);
+
+                var w2 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                w2.name = "Wall_South";
+                w2.transform.SetParent(tunnel.transform, false);
+                w2.transform.localPosition = new Vector3(0, 0, -size.z / 2f);
+                w2.transform.localScale = new Vector3(size.x, size.y, 0.2f);
+            }
+            else
+            {
+                // Left & Right walls along X
+                var w1 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                w1.name = "Wall_West";
+                w1.transform.SetParent(tunnel.transform, false);
+                w1.transform.localPosition = new Vector3(-size.x / 2f, 0, 0);
+                w1.transform.localScale = new Vector3(0.2f, size.y, size.z);
+
+                var w2 = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                w2.name = "Wall_East";
+                w2.transform.SetParent(tunnel.transform, false);
+                w2.transform.localPosition = new Vector3(size.x / 2f, 0, 0);
+                w2.transform.localScale = new Vector3(0.2f, size.y, size.z);
+            }
+        }
+
+        private static Tylerland.Office.DoorController Create3DDoor(Transform parent, int index, string doorName, Vector3 position, Quaternion rotation)
+        {
+            var doorFrameObj = new GameObject(doorName);
+            doorFrameObj.transform.SetParent(parent, false);
+            doorFrameObj.transform.position = position;
+            doorFrameObj.transform.rotation = rotation;
+
+            // Frame pillars (Strictly local space, localRotation identity)
+            var leftPillar = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            leftPillar.name = "Frame_Left";
+            leftPillar.transform.SetParent(doorFrameObj.transform, false);
+            leftPillar.transform.localPosition = new Vector3(-1.1f, 1.5f, 0);
+            leftPillar.transform.localRotation = Quaternion.identity;
+            leftPillar.transform.localScale = new Vector3(0.2f, 3.0f, 0.4f);
+
+            var rightPillar = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            rightPillar.name = "Frame_Right";
+            rightPillar.transform.SetParent(doorFrameObj.transform, false);
+            rightPillar.transform.localPosition = new Vector3(1.1f, 1.5f, 0);
+            rightPillar.transform.localRotation = Quaternion.identity;
+            rightPillar.transform.localScale = new Vector3(0.2f, 3.0f, 0.4f);
+
+            var topPillar = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            topPillar.name = "Frame_Top";
+            topPillar.transform.SetParent(doorFrameObj.transform, false);
+            topPillar.transform.localPosition = new Vector3(0, 3.1f, 0);
+            topPillar.transform.localRotation = Quaternion.identity;
+            topPillar.transform.localScale = new Vector3(2.4f, 0.2f, 0.4f);
+
+            // Moving Door Slab (Strictly local space, spanning from left to right pillar)
+            var doorSlab = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            doorSlab.name = "Door_MovingSlab_2DSprite";
+            doorSlab.transform.SetParent(doorFrameObj.transform, false);
+            doorSlab.transform.localPosition = new Vector3(0, 4.5f, 0); // Open position high
+            doorSlab.transform.localRotation = Quaternion.identity;
+            doorSlab.transform.localScale = new Vector3(2.0f, 2.8f, 0.05f); // 2.0 wide across doorway, 2.8 high, 0.05 thin
+
+            var spriteRenderer = doorSlab.AddComponent<SpriteRenderer>();
+
+            // Controller component
+            var controller = doorFrameObj.AddComponent<Tylerland.Office.DoorController>();
+
+            var idxField = typeof(Tylerland.Office.DoorController).GetField("_doorIndex", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            if (idxField != null) idxField.SetValue(controller, index);
+
+            var nameField = typeof(Tylerland.Office.DoorController).GetField("_doorName", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            if (nameField != null) nameField.SetValue(controller, doorName);
+
+            var meshField = typeof(Tylerland.Office.DoorController).GetField("_doorMeshTransform", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            if (meshField != null) meshField.SetValue(controller, doorSlab.transform);
+
+            var srField = typeof(Tylerland.Office.DoorController).GetField("_doorSpriteRenderer", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            if (srField != null) srField.SetValue(controller, spriteRenderer);
+
+            var openPosField = typeof(Tylerland.Office.DoorController).GetField("_openLocalPosition", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            if (openPosField != null) openPosField.SetValue(controller, new Vector3(0, 4.5f, 0));
+
+            var closePosField = typeof(Tylerland.Office.DoorController).GetField("_closedLocalPosition", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            if (closePosField != null) closePosField.SetValue(controller, new Vector3(0, 1.4f, 0));
+
+            // Set energy recharge to false (charges do NOT reload in the night)
+            var regenField = typeof(Tylerland.Office.DoorController).GetField("_rechargeDuringNight", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            if (regenField != null) regenField.SetValue(controller, false);
+
+            var regenRateField = typeof(Tylerland.Office.DoorController).GetField("_energyRegenOpen", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            if (regenRateField != null) regenRateField.SetValue(controller, 0.0f);
+
+            // Hallway Blindspot Light outside door frame
+            var lightObj = new GameObject("HallwayBlindspotLight");
+            lightObj.transform.SetParent(doorFrameObj.transform, false);
+            lightObj.transform.localPosition = new Vector3(0, 2.5f, 1.2f);
+            lightObj.transform.localRotation = Quaternion.identity;
+            var hallLight = lightObj.AddComponent<Light>();
+            hallLight.type = LightType.Point;
+            hallLight.range = 8f;
+            hallLight.color = new Color(1f, 0.95f, 0.75f);
+            hallLight.intensity = 2.5f;
+            hallLight.enabled = false;
+
+            var lightField = typeof(Tylerland.Office.DoorController).GetField("_hallwayLight", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            if (lightField != null) lightField.SetValue(controller, hallLight);
+
+            return controller;
+        }
+    }
+}
