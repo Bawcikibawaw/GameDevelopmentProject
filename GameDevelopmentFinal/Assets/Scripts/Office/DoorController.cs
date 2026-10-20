@@ -41,11 +41,17 @@ namespace Tylerland.Office
         [Tooltip("Optional 2D SpriteRenderer for the hand-drawn door visual")]
         [SerializeField] private SpriteRenderer _doorSpriteRenderer;
 
-        [Tooltip("Hand-drawn sprite when door is OPEN (optional if using sliding movement)")]
-        [SerializeField] private Sprite _openSprite;
+        [Tooltip("3D gray placeholder MeshRenderer that automatically hides once a 2D sprite is assigned")]
+        [SerializeField] private MeshRenderer _placeholder3DSlabRenderer;
 
-        [Tooltip("Hand-drawn sprite when door is CLOSED (optional if using sliding movement)")]
+        [Tooltip("Target width and height in meters for the 2D door sprite")]
+        [SerializeField] private Vector2 _doorSpriteTargetSize = new Vector2(2.0f, 2.8f);
+
+        [Tooltip("Hand-drawn sprite for the door shutter (used when closed or while sliding)")]
         [SerializeField] private Sprite _closedSprite;
+
+        [Tooltip("Optional separate sprite when door is fully OPEN (leave empty if using sliding shutter)")]
+        [SerializeField] private Sprite _openSprite;
 
         [Tooltip("Hand-drawn sprite when door is jammed/BROKEN")]
         [SerializeField] private Sprite _brokenSprite;
@@ -127,6 +133,11 @@ namespace Tylerland.Office
         private float _regenMultiplier = 1f;
         private float _durabilityMaxMultiplier = 1f;
 
+        private void OnValidate()
+        {
+            UpdateSpriteForState(_state);
+        }
+
         private void Start()
         {
             if (_doorMeshTransform == null)
@@ -137,6 +148,7 @@ namespace Tylerland.Office
             ApplyMotionStylePositions();
             ResetDoor();
             ApplyUpgradeModifiers();
+            UpdateSpriteForState(_state);
         }
 
         public void ApplyMotionStylePositions()
@@ -352,10 +364,30 @@ namespace Tylerland.Office
 
         private void UpdateSpriteForState(DoorState state)
         {
+            bool has2DSprite = (_closedSprite != null || _openSprite != null || _brokenSprite != null);
+
+            if (_placeholder3DSlabRenderer != null)
+            {
+                _placeholder3DSlabRenderer.enabled = !has2DSprite;
+            }
+
             if (_doorSpriteRenderer == null) return;
-            if (state == DoorState.Closed && _closedSprite != null) _doorSpriteRenderer.sprite = _closedSprite;
-            else if (state == DoorState.Open && _openSprite != null) _doorSpriteRenderer.sprite = _openSprite;
-            else if (state == DoorState.Broken && _brokenSprite != null) _doorSpriteRenderer.sprite = _brokenSprite;
+
+            Sprite activeSprite = _closedSprite;
+            if (state == DoorState.Broken && _brokenSprite != null)
+            {
+                activeSprite = _brokenSprite;
+            }
+            else if (state == DoorState.Open && _openSprite != null)
+            {
+                activeSprite = _openSprite;
+            }
+
+            _doorSpriteRenderer.sprite = activeSprite;
+            if (activeSprite != null)
+            {
+                OfficeArtManager.FitSpriteRendererToSize(_doorSpriteRenderer, _doorSpriteTargetSize);
+            }
         }
 
         /// <summary>
