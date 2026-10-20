@@ -1,5 +1,6 @@
 using UnityEngine;
 using Tylerland.Core;
+using Tylerland.Animatronics;
 
 namespace Tylerland.Office
 {
@@ -9,6 +10,8 @@ namespace Tylerland.Office
     /// - Night & Clock display
     /// - 4 Door Energy & Durability gauges (Green >35%, Amber 10-35%, Red <10%)
     /// - Facing direction indicator (Left, Center, Right, Back)
+    /// - Blindspot animatronic warning when Hallway Light ('F') illuminates an attacker
+    /// - Special Counter-Weapons status ('Q')
     /// - Monitor status & Subtitles for phone calls
     /// </summary>
     public class OfficeHUD : MonoBehaviour
@@ -38,10 +41,16 @@ namespace Tylerland.Office
             // 2. BOTTOM LEFT: Door Energy & Durability Status Box
             DrawDoorStatusWidget(screenH);
 
-            // 3. BOTTOM CENTER: Compass / View Direction & Controls
+            // 3. BOTTOM RIGHT: Special Counter-Weapons & Animatronic Status
+            DrawWeaponsWidget(screenW, screenH);
+
+            // 4. BOTTOM CENTER: Compass / View Direction & Controls
             DrawViewCompassWidget(screenW, screenH);
 
-            // 4. TOP CENTER: Subtitles (if phone call is active)
+            // 5. CENTER TOP: Blindspot Warning when Hallway Light ('F') reveals an animatronic!
+            DrawBlindspotThreatBanner(screenW, screenH);
+
+            // 6. TOP CENTER: Subtitles (if phone call is active)
             DrawSubtitlesWidget(screenW);
         }
 
@@ -114,10 +123,93 @@ namespace Tylerland.Office
             GUILayout.EndArea();
         }
 
+        private void DrawWeaponsWidget(int screenW, int screenH)
+        {
+            int w = 310;
+            int h = 150;
+            Rect rect = new Rect(screenW - w - 20, screenH - h - 20, w, h);
+            GUI.Box(rect, "<b>COUNTER-WEAPONS ('Q' to Use | 'G' Grant All)</b>");
+
+            GUILayout.BeginArea(new Rect(screenW - w - 10, screenH - h + 5, w - 20, h - 15));
+            GUILayout.Space(14);
+
+            string[,] weaponTable =
+            {
+                { "Harpoon", "Left Door (Shark)" },
+                { "Shears",  "Center Door (Tyler)" },
+                { "Net",     "Right Door (Eagle)" },
+                { "Prod",    "Back Door (Snake)" }
+            };
+
+            for (int i = 0; i < 4; i++)
+            {
+                string wId = weaponTable[i, 0];
+                string target = weaponTable[i, 1];
+                bool owned = RunManager.HasInstance && RunManager.Instance.State.weaponsOwned.Contains(wId);
+                bool used = RunManager.HasInstance && RunManager.Instance.State.weaponsUsed.Contains(wId);
+
+                string status = owned
+                    ? "<color=#44ff66>[READY]</color>"
+                    : (used ? "<color=#ff5555>[USED]</color>" : "<color=#888888>[NOT OWNED]</color>");
+
+                GUILayout.Label($"• <b>{wId}</b> ({target}): {status}");
+            }
+
+            GUILayout.EndArea();
+        }
+
+        private void DrawBlindspotThreatBanner(int screenW, int screenH)
+        {
+            // Show weapon feedback message if recent
+            if (SpecialWeaponSystem.HasInstance && !string.IsNullOrEmpty(SpecialWeaponSystem.Instance.LastStatusMessage))
+            {
+                Rect msgRect = new Rect((screenW - 560) / 2f, 145, 560, 42);
+                GUI.color = new Color(0.1f, 0.25f, 0.1f, 0.92f);
+                GUI.Box(msgRect, "");
+                GUI.color = Color.white;
+
+                GUIStyle msgStyle = new GUIStyle(GUI.skin.label)
+                {
+                    fontSize = 14,
+                    fontStyle = FontStyle.Bold,
+                    alignment = TextAnchor.MiddleCenter
+                };
+                msgStyle.normal.textColor = new Color(0.4f, 1f, 0.5f);
+                GUI.Label(msgRect, SpecialWeaponSystem.Instance.LastStatusMessage, msgStyle);
+            }
+
+            if (!PlayerViewController.HasInstance || PlayerViewController.Instance.IsMonitorOpen) return;
+
+            int doorIdx = (int)PlayerViewController.Instance.CurrentDirection;
+            var door = DoorSystemManager.HasInstance ? DoorSystemManager.Instance.GetDoor(doorIdx) : null;
+            if (door == null || !door.IsLightOn) return;
+
+            var attacker = AnimatronicManager.HasInstance ? AnimatronicManager.Instance.GetAnimatronicAtDoorBlindspot(doorIdx) : null;
+            if (attacker == null || attacker.Config == null) return;
+
+            Rect warnRect = new Rect((screenW - 600) / 2f, 90, 600, 50);
+            GUI.color = new Color(0.45f, 0.05f, 0.05f, 0.92f);
+            GUI.Box(warnRect, "");
+            GUI.color = Color.white;
+
+            GUIStyle warnStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 15,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter
+            };
+            warnStyle.normal.textColor = new Color(1f, 0.35f, 0.35f);
+
+            string weaponName = SpecialWeaponSystem.GetDefaultWeaponForDoor(doorIdx);
+            GUI.Label(warnRect,
+                $"⚠ {attacker.Config.displayName.ToUpper()} IS AT THE DOOR! (Dmg Lv.{attacker.DamageLevel}) — Press [E] Close Door or [Q] Use {weaponName}!",
+                warnStyle);
+        }
+
         private void DrawViewCompassWidget(int screenW, int screenH)
         {
-            int w = 400;
-            int h = 55;
+            int w = 480;
+            int h = 60;
             Rect rect = new Rect((screenW - w) / 2, screenH - h - 15, w, h);
             GUI.Box(rect, "");
 
@@ -146,7 +238,7 @@ namespace Tylerland.Office
             centerStyle.normal.textColor = Color.white;
 
             GUILayout.Label($"<b>Facing:</b> <color=cyan>{facing}</color> | <b>Monitor:</b> {monState}", centerStyle);
-            GUILayout.Label("<color=#aaaaaa>A/D: Turn | S: Back | W: Center | Space: Tablet | E: Door | F: Light</color>", centerStyle);
+            GUILayout.Label("<color=#aaaaaa>A/D: Turn | S: Back | W: Center | Space: Tablet | E: Door | F: Light | Q: Weapon | B: Summon</color>", centerStyle);
             GUILayout.EndArea();
         }
 

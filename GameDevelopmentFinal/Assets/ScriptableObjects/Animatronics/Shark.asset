@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8e2941b8300bfd24db7c6146b8e084a1, type: 3}
+  m_Name: Shark
+  m_EditorClassIdentifier: Assembly-CSharp::Tylerland.Config.AnimatronicConfig
+  animatronicId: shark
+  displayName: Shark
+  themeColor: {r: 0.25, g: 0.65, b: 0.9, a: 1}
+  targetDoorIndex: 0
+  cameraRouteIndices: 04000000040000000200000003000000
+  retreatStageIndex: 1
+  baseTickInterval: 4.2
+  lateNightAIRamp: 2
+  attackWindowSeconds: 3.8
+  cameraBehavior: 1
+  counterWeaponId: Harpoon
+  cameraStageSprites: []
+  doorwaySpritesByDamage:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  jumpscareFrames: []
+  footstepSound: {fileID: 0}
+  blindspotWarningSound: {fileID: 0}
+  doorBlockedBangSound: {fileID: 0}
+  jumpscareScreamSound: {fileID: 0}

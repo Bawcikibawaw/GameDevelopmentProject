@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Tylerland.Core;
+using Tylerland.Animatronics;
 
 namespace Tylerland.Office
 {
@@ -303,7 +304,37 @@ namespace Tylerland.Office
 
         private void DrawRoom2DArtwork(Rect screenRect, HandDrawnCameraFeed room)
         {
+            bool isSpoofed = SnakeCameraManipulator.HasInstance
+                && SnakeCameraManipulator.Instance.IsFeedCurrentlySpoofed
+                && SnakeCameraManipulator.Instance.SpoofedCameraIndex == _currentCameraIndex;
+
+            List<AnimatronicUnit> occupants = (!isSpoofed && AnimatronicManager.HasInstance)
+                ? AnimatronicManager.Instance.GetAnimatronicsInCameraRoom(_currentCameraIndex)
+                : new List<AnimatronicUnit>();
+
             Sprite spriteToDraw = room.emptyRoomSprite;
+
+            // Check if any present animatronic has a specific 2D camera stage sprite assigned
+            if (occupants.Count > 0)
+            {
+                var primary = occupants[0];
+                if (primary.Config != null && primary.Config.cameraStageSprites != null && primary.Config.cameraStageSprites.Length > 0)
+                {
+                    int stageIdx = Mathf.Clamp(primary.CurrentStage, 0, primary.Config.cameraStageSprites.Length - 1);
+                    if (primary.Config.cameraStageSprites[stageIdx] != null)
+                    {
+                        spriteToDraw = primary.Config.cameraStageSprites[stageIdx];
+                    }
+                }
+                else if (room.animatronicPresentSprites != null && room.animatronicPresentSprites.Length > 0)
+                {
+                    int idx = Mathf.Clamp(primary.CurrentStage, 0, room.animatronicPresentSprites.Length - 1);
+                    if (room.animatronicPresentSprites[idx] != null)
+                    {
+                        spriteToDraw = room.animatronicPresentSprites[idx];
+                    }
+                }
+            }
 
             // Draw Sprite texture if assigned
             if (spriteToDraw != null && spriteToDraw.texture != null)
@@ -317,10 +348,32 @@ namespace Tylerland.Office
                 {
                     fontSize = 22,
                     alignment = TextAnchor.MiddleCenter,
-                    fontStyle = FontStyle.Bold
+                    fontStyle = FontStyle.Bold,
+                    richText = true
                 };
                 mockStyle.normal.textColor = new Color(0.2f, 0.8f, 0.4f, 0.85f);
-                GUI.Label(screenRect, $"[2D HAND-DRAWN ROOM FEED]\n<b>{room.cameraName}</b>\n<size=13><color=#aaaaaa>Drop 2D art into CameraMonitorSystem -> Rooms[{_currentCameraIndex}]</color></size>", mockStyle);
+
+                string occText = "<color=#66aa77>STATUS: ROOM CLEAR</color>";
+                if (isSpoofed)
+                {
+                    occText = "<color=#ff4444>⚠ SIGNAL ANOMALY (SNAKE INTERFERENCE) — ROOM APPEARS CLEAR</color>";
+                }
+                else if (occupants.Count > 0)
+                {
+                    occText = "";
+                    foreach (var u in occupants)
+                    {
+                        string hex = ColorUtility.ToHtmlStringRGB(u.Config != null ? u.Config.themeColor : Color.red);
+                        string stalled = u.IsStalledByCamera ? " <color=cyan>[CAMERA STALLED]</color>" : "";
+                        occText += $"\n<size=20><color=#{hex}>⚠ [◉_◉] {u.DisplayName.ToUpper()} PRESENT (Stage {u.CurrentStage + 1}/{u.MaxStage} | Dmg Lv.{u.DamageLevel}){stalled}</color></size>";
+                    }
+                }
+
+                GUI.Label(
+                    screenRect,
+                    $"[2D HAND-DRAWN ROOM FEED]\n<b>{room.cameraName}</b>\n{occText}\n\n<size=12><color=#888888>Drop 2D art into CameraMonitorSystem -> Rooms[{_currentCameraIndex}]</color></size>",
+                    mockStyle
+                );
             }
         }
 

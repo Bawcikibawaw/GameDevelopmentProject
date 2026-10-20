@@ -56,6 +56,7 @@ namespace Tylerland.Office
         private float _lastAttackReadyTimestamp = -10f;
 
         public int ActiveThreatCount => _activeThreats.Count;
+        public float WarningCueLead => _warningCueLead;
 
         private void Update()
         {
@@ -144,6 +145,31 @@ namespace Tylerland.Office
             Debug.LogError($"[AttackResolver] ATTACK RESOLUTION: Door {threat.doorIndex} was OPEN! '{threat.animatronicId}' kills the player!");
             GameEvents.TriggerJumpscare(threat.animatronicId);
             GameEvents.TriggerPlayerDied(threat.animatronicId);
+        }
+
+        public ActiveThreat GetActiveThreatAtDoor(int doorIndex)
+        {
+            for (int i = 0; i < _activeThreats.Count; i++)
+            {
+                if (_activeThreats[i].doorIndex == doorIndex && !_activeThreats[i].isBlocked)
+                {
+                    return _activeThreats[i];
+                }
+            }
+            return null;
+        }
+
+        public bool CancelThreatForAnimatronic(string animatronicId)
+        {
+            for (int i = _activeThreats.Count - 1; i >= 0; i--)
+            {
+                if (string.Equals(_activeThreats[i].animatronicId, animatronicId, StringComparison.OrdinalIgnoreCase))
+                {
+                    _activeThreats.RemoveAt(i);
+                    return true;
+                }
+            }
+            return false;
         }
 
         public void ClearAllThreats()

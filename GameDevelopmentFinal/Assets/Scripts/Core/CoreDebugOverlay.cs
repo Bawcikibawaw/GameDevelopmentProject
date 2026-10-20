@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Tylerland.Animatronics;
 
 namespace Tylerland.Core
 {
@@ -71,7 +72,8 @@ namespace Tylerland.Core
             if (keyboard.jKey.wasPressedThisFrame)
             {
                 Debug.Log("[DEBUG CHEAT] 'J' pressed: Triggering jumpscare kill!");
-                GameEvents.TriggerPlayerDied("Debug Killer");
+                GameEvents.TriggerJumpscare("Tyler");
+                GameEvents.TriggerPlayerDied("Tyler");
             }
 
             // 'R': Force Run Reset
@@ -97,8 +99,8 @@ namespace Tylerland.Core
 
             // Semi-transparent debug box
             GUI.color = Color.white;
-            int boxWidth = 380;
-            int boxHeight = 290;
+            int boxWidth = 420;
+            int boxHeight = 390;
             Rect rect = new Rect(20, 20, boxWidth, boxHeight);
             GUI.Box(rect, "TYLERLAND DEBUG OVERLAY [Toggle: 'H' or 'O']");
 
@@ -117,24 +119,33 @@ namespace Tylerland.Core
                 GUILayout.Label($"<b>Shift Clock:</b> {timeStr} | Blend: {blend:P0} | Active: {NightClock.Instance.IsClockRunning}");
             }
 
-            // Run State
+            // Run & Meta State
             if (RunManager.HasInstance)
             {
                 var run = RunManager.Instance;
-                GUILayout.Label($"<b>Night:</b> {run.CurrentNight} / {run.TotalNights}");
-                GUILayout.Label($"<b>Run Money:</b> ${run.Money}");
-                GUILayout.Label($"<b>Tyler Dmg:</b> {run.State.damageTyler} | <b>Shark:</b> {run.State.damageShark} | <b>Eagle:</b> {run.State.damageEagle} | <b>Snake:</b> {run.State.damageSnake}");
+                int sc = MetaProgressionManager.HasInstance ? MetaProgressionManager.Instance.SoulCoins : 0;
+                GUILayout.Label($"<b>Night:</b> {run.CurrentNight}/{run.TotalNights} | <b>Money:</b> ${run.Money} | <b>Soul Coins:</b> {sc}");
             }
 
-            // Meta State
-            if (MetaProgressionManager.HasInstance)
+            // Live Animatronic Progression Table
+            if (AnimatronicManager.HasInstance && AnimatronicManager.Instance.Units != null)
             {
-                var meta = MetaProgressionManager.Instance;
-                GUILayout.Label($"<b>Soul Coins:</b> {meta.SoulCoins} | <b>Best Night:</b> {meta.BestNight}");
+                GUILayout.Space(4);
+                GUILayout.Label("<b><color=#ff9966>LIVE ANIMATRONICS (Stage / Room / AI / Dmg):</color></b>");
+                foreach (var unit in AnimatronicManager.Instance.Units)
+                {
+                    if (unit == null || unit.Config == null) continue;
+                    string statusColor = unit.IsAtDoorBlindspot ? "#ff4444" : (unit.EffectiveAILevel > 0 ? "#88ff88" : "#888888");
+                    string loc = unit.IsAtDoorBlindspot
+                        ? $"DOOR {unit.TargetDoorIndex + 1} BLINDSPOT!"
+                        : $"CAM {unit.CurrentCameraRoomIndex + 1:00} (Stg {unit.CurrentStage}/{unit.MaxStage})";
+
+                    GUILayout.Label($"<color={statusColor}>• <b>{unit.Config.displayName}:</b> {loc} | AI:{unit.EffectiveAILevel} | Dmg:{unit.DamageLevel}</color>");
+                }
             }
 
-            GUILayout.Space(8);
-            GUILayout.Label("<color=cyan><b>Letter Cheats:</b>\n[N] Win Night (6 AM)  |  [M] +$100 Money\n[C] +5 Soul Coins       |  [J] Jumpscare/Die\n[R] Reset Run           |  [P] Pause</color>");
+            GUILayout.Space(6);
+            GUILayout.Label("<color=cyan><b>Letter Cheats:</b>\n[T] Step Animatronics +1 Stage | [B] Summon to Faced Door\n[G] Grant All 4 Weapons       | [Q] Use Counter-Weapon\n[N] Win Night (6 AM)          | [J] Test Jumpscare\n[M] +$100  [C] +5 Coins        | [R] Reset  [P] Pause</color>");
 
             GUILayout.EndArea();
         }

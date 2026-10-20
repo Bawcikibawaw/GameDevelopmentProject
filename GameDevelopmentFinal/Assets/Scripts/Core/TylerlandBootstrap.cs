@@ -57,8 +57,9 @@ namespace Tylerland.Core
             }
         }
 
-        private void OnDestroy()
+        protected override void OnDestroy()
         {
+            base.OnDestroy();
             GameEvents.OnNightStarted -= HandleNightStarted;
         }
 

@@ -3,6 +3,7 @@ using UnityEditor;
 using System.IO;
 using Tylerland.Core;
 using Tylerland.Config;
+using Tylerland.Animatronics;
 
 namespace Tylerland.Editor
 {
@@ -14,7 +15,7 @@ namespace Tylerland.Editor
     {
         private const string CONFIG_FOLDER = "Assets/ScriptableObjects";
 
-        [MenuItem("Tylerland/1. Generate Default Config Assets (Nights 1-6 & Economy)", false, 1)]
+        [MenuItem("Tylerland/1. Generate Default Config Assets (Nights 1-6, Economy & Animatronics)", false, 1)]
         public static void GenerateDefaultConfigs()
         {
             if (!AssetDatabase.IsValidFolder(CONFIG_FOLDER))
@@ -24,6 +25,10 @@ namespace Tylerland.Editor
             if (!AssetDatabase.IsValidFolder(CONFIG_FOLDER + "/Nights"))
             {
                 AssetDatabase.CreateFolder(CONFIG_FOLDER, "Nights");
+            }
+            if (!AssetDatabase.IsValidFolder(CONFIG_FOLDER + "/Animatronics"))
+            {
+                AssetDatabase.CreateFolder(CONFIG_FOLDER, "Animatronics");
             }
 
             // 1. Economy Config
@@ -66,9 +71,43 @@ namespace Tylerland.Editor
                 }
             }
 
+            // 3. Animatronic Configs (§5.2 Cast Table)
+            CreateOrLoadAnimatronicAsset("tyler", "Tyler", new Color(0.85f, 0.35f, 0.25f), 1, new[] { 0, 1, 7, 1 }, 1, 4.9f, 2, 4.5f, CameraStallBehavior.StalledWhenWatchedOnCamera, "Shears");
+            CreateOrLoadAnimatronicAsset("shark", "Shark", new Color(0.25f, 0.65f, 0.90f), 0, new[] { 4, 4, 2, 3 }, 1, 4.2f, 2, 3.8f, CameraStallBehavior.StalledWhenWatchedOnCamera, "Harpoon");
+            CreateOrLoadAnimatronicAsset("eagle", "Eagle", new Color(0.95f, 0.75f, 0.20f), 2, new[] { 0, 1, 8, 5, 6 }, 0, 4.6f, 2, 3.5f, CameraStallBehavior.None, "Net");
+            CreateOrLoadAnimatronicAsset("snake", "Snake", new Color(0.35f, 0.85f, 0.40f), 3, new[] { 7, 8, 9, 9 }, 0, 5.1f, 3, 4.2f, CameraStallBehavior.ManipulatesCameraFeeds, "Prod");
+            CreateOrLoadAnimatronicAsset("boss", "The Amalgam (Boss)", new Color(0.80f, 0.15f, 0.85f), 1, new[] { 0, 1, 2, 5, 9 }, 1, 3.4f, 4, 3.2f, CameraStallBehavior.ManipulatesCameraFeeds, "Shears");
+
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            EditorUtility.DisplayDialog("Tylerland Setup", "Default Config assets (Nights 1-6 & Economy) generated successfully in Assets/ScriptableObjects/!", "OK");
+            EditorUtility.DisplayDialog("Tylerland Setup", "Default Config assets (Nights 1-6, Economy & 5 Animatronics) generated successfully in Assets/ScriptableObjects/!", "OK");
+        }
+
+        private static AnimatronicConfig CreateOrLoadAnimatronicAsset(
+            string id, string displayName, Color color, int doorIdx, int[] route,
+            int retreatStage, float tickInterval, int lateRamp, float attackWindow,
+            CameraStallBehavior camBehavior, string weaponId)
+        {
+            string path = $"{CONFIG_FOLDER}/Animatronics/{displayName.Split(' ')[0]}.asset";
+            var cfg = AssetDatabase.LoadAssetAtPath<AnimatronicConfig>(path);
+            if (cfg == null)
+            {
+                cfg = ScriptableObject.CreateInstance<AnimatronicConfig>();
+                cfg.animatronicId = id;
+                cfg.displayName = displayName;
+                cfg.themeColor = color;
+                cfg.targetDoorIndex = doorIdx;
+                cfg.cameraRouteIndices = route;
+                cfg.retreatStageIndex = retreatStage;
+                cfg.baseTickInterval = tickInterval;
+                cfg.lateNightAIRamp = lateRamp;
+                cfg.attackWindowSeconds = attackWindow;
+                cfg.cameraBehavior = camBehavior;
+                cfg.counterWeaponId = weaponId;
+                AssetDatabase.CreateAsset(cfg, path);
+                Debug.Log($"[Tylerland Editor] Created AnimatronicConfig at {path}");
+            }
+            return cfg;
         }
 
         [MenuItem("Tylerland/2. Setup Core Systems in Current Scene", false, 2)]
@@ -222,7 +261,7 @@ namespace Tylerland.Editor
             // Back (Snake): at Z = -4.9, faces inward (+Z) -> Y rotation = 0
             doorControllers[3] = Create3DDoor(officeRoot.transform, 3, "Back Door (Snake)", new Vector3(0, 0, -4.9f), Quaternion.Euler(0, 0f, 0));
 
-            // 5. Office Systems Managers
+            // 5. Office & Animatronic Systems Managers
             var officeMgrObj = new GameObject("[OFFICE_MANAGERS]");
             officeMgrObj.transform.SetParent(officeRoot.transform, false);
             var doorSys = officeMgrObj.AddComponent<Tylerland.Office.DoorSystemManager>();
@@ -231,6 +270,35 @@ namespace Tylerland.Editor
             var phoneSys = officeMgrObj.AddComponent<Tylerland.Office.PhoneSystem>();
             var hud = officeMgrObj.AddComponent<Tylerland.Office.OfficeHUD>();
             var artMgr = officeMgrObj.AddComponent<Tylerland.Office.OfficeArtManager>();
+
+            // Section 5: Animatronic Systems
+            var animMgr = officeMgrObj.AddComponent<AnimatronicManager>();
+            officeMgrObj.AddComponent<SnakeCameraManipulator>();
+            officeMgrObj.AddComponent<SpecialWeaponSystem>();
+            officeMgrObj.AddComponent<JumpscareManager>();
+
+            // Ensure default AnimatronicConfig assets exist and wire them into AnimatronicManager
+            if (!AssetDatabase.IsValidFolder(CONFIG_FOLDER))
+            {
+                AssetDatabase.CreateFolder("Assets", "ScriptableObjects");
+            }
+            if (!AssetDatabase.IsValidFolder(CONFIG_FOLDER + "/Animatronics"))
+            {
+                AssetDatabase.CreateFolder(CONFIG_FOLDER, "Animatronics");
+            }
+
+            var tylerCfg = CreateOrLoadAnimatronicAsset("tyler", "Tyler", new Color(0.85f, 0.35f, 0.25f), 1, new[] { 0, 1, 7, 1 }, 1, 4.9f, 2, 4.5f, CameraStallBehavior.StalledWhenWatchedOnCamera, "Shears");
+            var sharkCfg = CreateOrLoadAnimatronicAsset("shark", "Shark", new Color(0.25f, 0.65f, 0.90f), 0, new[] { 4, 4, 2, 3 }, 1, 4.2f, 2, 3.8f, CameraStallBehavior.StalledWhenWatchedOnCamera, "Harpoon");
+            var eagleCfg = CreateOrLoadAnimatronicAsset("eagle", "Eagle", new Color(0.95f, 0.75f, 0.20f), 2, new[] { 0, 1, 8, 5, 6 }, 0, 4.6f, 2, 3.5f, CameraStallBehavior.None, "Net");
+            var snakeCfg = CreateOrLoadAnimatronicAsset("snake", "Snake", new Color(0.35f, 0.85f, 0.40f), 3, new[] { 7, 8, 9, 9 }, 0, 5.1f, 3, 4.2f, CameraStallBehavior.ManipulatesCameraFeeds, "Prod");
+            var bossCfg  = CreateOrLoadAnimatronicAsset("boss", "Boss", new Color(0.80f, 0.15f, 0.85f), 1, new[] { 0, 1, 2, 5, 9 }, 1, 3.4f, 4, 3.2f, CameraStallBehavior.ManipulatesCameraFeeds, "Shears");
+
+            var animFlags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+            typeof(AnimatronicManager).GetField("_tylerConfig", animFlags)?.SetValue(animMgr, tylerCfg);
+            typeof(AnimatronicManager).GetField("_sharkConfig", animFlags)?.SetValue(animMgr, sharkCfg);
+            typeof(AnimatronicManager).GetField("_eagleConfig", animFlags)?.SetValue(animMgr, eagleCfg);
+            typeof(AnimatronicManager).GetField("_snakeConfig", animFlags)?.SetValue(animMgr, snakeCfg);
+            typeof(AnimatronicManager).GetField("_bossConfig", animFlags)?.SetValue(animMgr, bossCfg);
 
             // 6. Walls with Doorway Openings, Dark Corridor Tunnels & 2D Sprite Canvases
             BuildOfficeWallsAndCorridors(officeRoot.transform, artMgr, deskSR, desk, floorSR, floor, ceilingSR, ceiling);
@@ -260,7 +328,7 @@ namespace Tylerland.Editor
             UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene());
 
             Selection.activeGameObject = officeMgrObj;
-            EditorUtility.DisplayDialog("Tylerland Setup", "3D + 2D Hybrid Office Environment built successfully!\n\n- 4 Inward-Facing Doors + 2D Sprite Layers\n- OfficeArtManager ready for 100% 2D Hand-Drawn Walls, Corridors & Desk\n- Realistic Corridor Tunnels & Blindspot Lights (Key 'F')\n- FNAF Non-recharging Door Charges\n\nSelect '[OFFICE_MANAGERS]' to drag & drop 2D wall/corridor sprites anytime!", "Awesome!");
+            EditorUtility.DisplayDialog("Tylerland Setup", "3D + 2D Hybrid Office & Animatronic Systems built successfully!\n\n- 4 Inward-Facing Doors + 2D Sprite Layers\n- OfficeArtManager ready for 100% 2D Hand-Drawn Walls, Corridors & Desk\n- All 5 Animatronics (Tyler, Shark, Eagle, Snake, Boss) + Counter-Weapons + Jumpscare System wired!\n\nSelect '[OFFICE_MANAGERS]' to customize sprites or configs anytime!", "Awesome!");
         }
 
         private static void BuildOfficeWallsAndCorridors(
