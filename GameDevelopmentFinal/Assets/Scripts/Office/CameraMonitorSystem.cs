@@ -2,76 +2,73 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using Tylerland.Core;
 using Tylerland.Animatronics;
 
 namespace Tylerland.Office
 {
     /// <summary>
-    /// Configuration and 2D hand-drawn art for a single room/corridor camera feed.
-    /// Exactly like FNAF 1: holds empty room backgrounds, animatronic presence layers,
-    /// audio-only states, and coordinates on the facility map.
+    /// Configuration and 2D hand-drawn art for one of the 4 Animatronic Camera Rooms.
+    /// Holds the empty room 2D sprite, the stage 2D sprites when the animatronic is inside the room,
+    /// and coordinates on the 4-room tablet map.
     /// </summary>
     [Serializable]
     public class HandDrawnCameraFeed
     {
-        public string roomId = "CAM_1A";
-        public string cameraName = "CAM 1A - Main Stage";
+        public string roomId = "CAM_01";
+        public string cameraName = "CAM 01 - Erle the Eagle (Left)";
 
-        [Tooltip("Position (X: 0-1, Y: 0-1) on the security tablet floorplan map")]
-        public Vector2 mapNormalizedPosition = new Vector2(0.5f, 0.8f);
+        [Tooltip("Position (X: 0-1, Y: 0-1) on the security tablet 4-room map")]
+        public Vector2 mapNormalizedPosition = new Vector2(0.08f, 0.50f);
 
-        [Tooltip("Hand-drawn 2D background of this room when empty")]
+        [Tooltip("Hand-drawn 2D sprite of this room when EMPTY (when the animatronic has left for your office door!)")]
         public Sprite emptyRoomSprite;
 
-        [Tooltip("Hand-drawn 2D illustrations when animatronics are present (e.g. Far, Mid, Near)")]
-        public Sprite[] animatronicPresentSprites = new Sprite[3];
+        [Tooltip("Hand-drawn 2D sprites when the animatronic is inside this room (optional override per stage)")]
+        public Sprite[] animatronicPresentSprites = new Sprite[6];
 
-        [Tooltip("Whether this room is audio-only (like the Kitchen in FNAF 1)")]
+        [Tooltip("Whether this room is audio-only (e.g. after Nightmare Tyler destroys CAM 02)")]
         public bool isAudioOnly = false;
 
-        [Tooltip("Audio clip playing while viewing this camera (e.g. kitchen pots, music box)")]
+        [Tooltip("Audio clip playing while viewing this camera")]
         public AudioClip roomAudioClip;
     }
 
     /// <summary>
-    /// Section 4.2: FNAF 1 Style Room & Corridor Surveillance Monitor System.
-    /// Features:
-    /// - 10 discrete facility rooms and hallways (Main Stage, Dining Area, West Hall,
-    ///   West Corner, Pirate Cove, East Hall, East Corner, Backstage, Kitchen, Service Vent).
-    /// - Interactive facility floorplan tablet map with clickable camera buttons.
-    /// - 2D hand-drawn illustration display with static bursts and scanlines.
-    /// - Kitchen audio-only mode.
-    /// - Snake camera manipulation hooks.
+    /// Section 4.2 & GDD Section 4: 4-Room 2D Sprite Surveillance Monitor System.
+    /// Monitors the 4 dedicated Animatronic Rooms surrounding the Security Office:
+    /// - Room 0 (CAM 01 - Left):   Erle the Eagle (Sheriff / Security Mascot)
+    /// - Room 1 (CAM 02 - Center): Tyler the Lion (Lead Singer / Central Mascot — destroys camera in Nightmare form!)
+    /// - Room 2 (CAM 03 - Right):  Orville the Orca (Medical Attendant — 80% retreat / 20% +2 advance in Normal; +1 advance when watched in Nightmare!)
+    /// - Room 3 (CAM 04 - Rear):   Sandy the Snake (Maintenance Mascot — 4 stages Normal; 5 stages + shed decoy shells in Nightmare!)
     /// </summary>
     public class CameraMonitorSystem : Singleton<CameraMonitorSystem>
     {
         [Header("Monitor Tablet Timings (Roadmap 4.2)")]
         [Tooltip("Time in seconds to raise the security tablet")]
-        [SerializeField] private float _monitorOpenTime = 0.4f;
+        [SerializeField] private float _monitorOpenTime = 0.35f;
 
         [Tooltip("Time in seconds to lower the security tablet")]
-        [SerializeField] private float _monitorCloseTime = 0.3f;
+        [SerializeField] private float _monitorCloseTime = 0.25f;
 
-        [Tooltip("Static noise burst duration when switching between camera channels")]
-        [SerializeField] private float _switchStaticDuration = 0.25f;
+        [Tooltip("Static noise burst duration when switching between the 4 camera rooms")]
+        [SerializeField] private float _switchStaticDuration = 0.20f;
 
-        [Header("FNAF 1 Rooms & Corridors (10 Feeds)")]
-        [SerializeField] private HandDrawnCameraFeed[] _rooms = new HandDrawnCameraFeed[10];
+        [Header("The 4 Animatronic Camera Rooms (0=Erle, 1=Tyler, 2=Orville, 3=Sandy)")]
+        [SerializeField] private HandDrawnCameraFeed[] _rooms = new HandDrawnCameraFeed[4];
 
         [Header("Active Channel State")]
-        [Tooltip("Current active camera index (0 to 9)")]
-        [SerializeField] private int _currentCameraIndex = 0; // Default: CAM 1A Main Stage
+        [Tooltip("Current active camera room index (0=Erle, 1=Tyler, 2=Orville, 3=Sandy)")]
+        [SerializeField] private int _currentCameraIndex = 1; // Default: CAM 02 Tyler's Room
 
         [Tooltip("Last viewed camera index remembered when reopening monitor")]
-        [SerializeField] private int _lastViewedCamera = 0;
+        [SerializeField] private int _lastViewedCamera = 1;
 
         [Header("Feed Atmosphere & Static")]
         [Range(0f, 1f)]
-        [SerializeField] private float _baseFeedNoiseLevel = 0.15f;
+        [SerializeField] private float _baseFeedNoiseLevel = 0.12f;
 
-        [Tooltip("Static noise level boost applied by Snake interference")]
+        [Tooltip("Static noise level boost applied by Nightmare Sandy interference")]
         [Range(0f, 1f)]
         [SerializeField] private float _snakeNoiseBoost = 0f;
 
@@ -90,12 +87,15 @@ namespace Tylerland.Office
         public int CurrentCameraIndex => _currentCameraIndex;
         public float TotalNoiseLevel => Mathf.Clamp01(_baseFeedNoiseLevel + _snakeNoiseBoost);
         public bool IsStaticBursting => _isStaticBursting;
-        public HandDrawnCameraFeed CurrentRoom => (_rooms != null && _currentCameraIndex >= 0 && _currentCameraIndex < _rooms.Length) ? _rooms[_currentCameraIndex] : null;
+        public HandDrawnCameraFeed[] Rooms => _rooms;
+        public HandDrawnCameraFeed CurrentRoom => (_rooms != null && _currentCameraIndex >= 0 && _currentCameraIndex < _rooms.Length)
+            ? _rooms[_currentCameraIndex]
+            : null;
 
         protected override void Awake()
         {
             base.Awake();
-            InitializeDefaultFNAF1Rooms();
+            InitializeFourAnimatronicRooms();
             if (_cameraAudioSource == null)
             {
                 _cameraAudioSource = gameObject.AddComponent<AudioSource>();
@@ -104,49 +104,56 @@ namespace Tylerland.Office
             }
         }
 
-        private void InitializeDefaultFNAF1Rooms()
+        private void OnValidate()
         {
-            if (_rooms == null || _rooms.Length != 10)
+            InitializeFourAnimatronicRooms();
+        }
+
+        /// <summary>
+        /// Ensures there are strictly 4 Camera Rooms corresponding to the 4 GDD Animatronics' Rooms.
+        /// </summary>
+        public void InitializeFourAnimatronicRooms()
+        {
+            if (_rooms == null || _rooms.Length != 4)
             {
-                _rooms = new HandDrawnCameraFeed[10];
+                var old = _rooms;
+                _rooms = new HandDrawnCameraFeed[4];
+                if (old != null)
+                {
+                    for (int i = 0; i < Mathf.Min(4, old.Length); i++)
+                    {
+                        _rooms[i] = old[i];
+                    }
+                }
             }
 
-            // Authentic FNAF 1 Building Layout Setup
-            string[] ids = { "CAM_1A", "CAM_1B", "CAM_2A", "CAM_2B", "CAM_3", "CAM_4A", "CAM_4B", "CAM_5", "CAM_6", "CAM_7" };
-            string[] names = {
-                "CAM 1A - Main Stage",
-                "CAM 1B - Dining Area",
-                "CAM 2A - West Corridor (Left)",
-                "CAM 2B - West Hall Corner (Left Door)",
-                "CAM 3 - Pirate Cove (Shark)",
-                "CAM 4A - East Corridor (Right)",
-                "CAM 4B - East Hall Corner (Right Door)",
-                "CAM 5 - Backstage & Parts",
-                "CAM 6 - Kitchen (Audio Only)",
-                "CAM 7 - Service Vent (Snake / Back Door)"
+            string[] ids = { "CAM_01", "CAM_02", "CAM_03", "CAM_04" };
+            string[] names =
+            {
+                "CAM 01 - Erle the Eagle (Left / Sheriff)",
+                "CAM 02 - Tyler the Lion (Center / Main Stage)",
+                "CAM 03 - Orville the Orca (Right / Medical Bay)",
+                "CAM 04 - Sandy the Snake (Rear / Maintenance)"
             };
 
-            Vector2[] mapCoords = {
-                new Vector2(0.50f, 0.85f), // 1A: Stage (Top center)
-                new Vector2(0.50f, 0.65f), // 1B: Dining (Center)
-                new Vector2(0.20f, 0.45f), // 2A: West Hall (Left corridor)
-                new Vector2(0.20f, 0.20f), // 2B: West Corner (Outside Left Door)
-                new Vector2(0.12f, 0.65f), // 3: Pirate Cove (Far left)
-                new Vector2(0.80f, 0.45f), // 4A: East Hall (Right corridor)
-                new Vector2(0.80f, 0.20f), // 4B: East Corner (Outside Right Door)
-                new Vector2(0.12f, 0.85f), // 5: Backstage (Top left)
-                new Vector2(0.88f, 0.65f), // 6: Kitchen (Far right)
-                new Vector2(0.50f, 0.15f)  // 7: Service Vent (Bottom center outside Back Door)
+            // 4-Room Cross Layout surrounding the Office in the center (0.50, 0.50)
+            Vector2[] mapCoords =
+            {
+                new Vector2(0.08f, 0.50f), // 0: Left (Erle the Eagle)
+                new Vector2(0.50f, 0.86f), // 1: Center (Tyler the Lion)
+                new Vector2(0.92f, 0.50f), // 2: Right (Orville the Orca)
+                new Vector2(0.50f, 0.14f)  // 3: Rear (Sandy the Snake)
             };
 
-            for (int i = 0; i < 10; i++)
+            for (int i = 0; i < 4; i++)
             {
                 if (_rooms[i] == null) _rooms[i] = new HandDrawnCameraFeed();
                 _rooms[i].roomId = ids[i];
                 _rooms[i].cameraName = names[i];
                 _rooms[i].mapNormalizedPosition = mapCoords[i];
-                if (i == 8) _rooms[i].isAudioOnly = true; // CAM 6 Kitchen
             }
+
+            _currentCameraIndex = Mathf.Clamp(_currentCameraIndex, 0, 3);
         }
 
         #region Monitor Controls
@@ -169,7 +176,6 @@ namespace Tylerland.Office
             float duration = raised ? _monitorOpenTime : _monitorCloseTime;
             _monitorTransitionRoutine = StartCoroutine(AnimateMonitorRoutine(raised, duration));
 
-            // Stop/Start room audio
             if (!raised && _cameraAudioSource != null)
             {
                 _cameraAudioSource.Stop();
@@ -246,7 +252,7 @@ namespace Tylerland.Office
         }
         #endregion
 
-        #region FNAF 1 Security Tablet GUI (OnGUI)
+        #region 4-Room 2D Sprite Security Tablet GUI (OnGUI)
         private void OnGUI()
         {
             if (_animProgress <= 0.01f) return;
@@ -254,7 +260,6 @@ namespace Tylerland.Office
             int sw = Screen.width;
             int sh = Screen.height;
 
-            // Slide tablet in from bottom
             float panelW = sw * 0.90f;
             float panelH = sh * 0.90f;
             float startY = sh;
@@ -276,17 +281,10 @@ namespace Tylerland.Office
 
             var room = CurrentRoom;
 
-            // 1. Draw 2D Room Artwork or Audio-Only Screen
+            // 1. Draw 2D Room Artwork & 2D Animatronic Stage Sprite
             if (room != null)
             {
-                if (room.isAudioOnly)
-                {
-                    DrawAudioOnlyScreen(screenRect);
-                }
-                else
-                {
-                    DrawRoom2DArtwork(screenRect, room);
-                }
+                DrawRoom2DArtwork(screenRect, room);
             }
 
             // 2. Static / Noise Burst overlay
@@ -298,12 +296,20 @@ namespace Tylerland.Office
             // 3. Top-Left: Channel Name & Blinking REC
             DrawCameraHeader(screenRect, room);
 
-            // 4. Bottom-Right: Interactive FNAF 1 Facility Floorplan Map
-            DrawFacilityTabletMap(screenRect);
+            // 4. Bottom-Right: Interactive 4-Room Cross Map with Live Animatronic Pointers
+            DrawFourRoomTabletMap(screenRect);
         }
 
         private void DrawRoom2DArtwork(Rect screenRect, HandDrawnCameraFeed room)
         {
+            // Check if Nightmare Tyler has destroyed CAM 02 (GDD Section 4.2.3)
+            var tylerUnit = AnimatronicManager.HasInstance ? AnimatronicManager.Instance.GetAnimatronic("tyler") : null;
+            if (_currentCameraIndex == 1 && tylerUnit != null && tylerUnit.IsCameraDestroyed)
+            {
+                DrawDestroyedCameraScreen(screenRect, tylerUnit);
+                return;
+            }
+
             bool isSpoofed = SnakeCameraManipulator.HasInstance
                 && SnakeCameraManipulator.Instance.IsFeedCurrentlySpoofed
                 && SnakeCameraManipulator.Instance.SpoofedCameraIndex == _currentCameraIndex;
@@ -312,18 +318,29 @@ namespace Tylerland.Office
                 ? AnimatronicManager.Instance.GetAnimatronicsInCameraRoom(_currentCameraIndex)
                 : new List<AnimatronicUnit>();
 
-            Sprite spriteToDraw = room.emptyRoomSprite;
+            var sandyUnit = AnimatronicManager.HasInstance ? AnimatronicManager.Instance.GetAnimatronic("sandy") : null;
+            bool showSandyDecoy = (_currentCameraIndex == 3 && sandyUnit != null && sandyUnit.HasActiveDecoyShell);
 
-            // Check if any present animatronic has a specific 2D camera stage sprite assigned
+            string[] ownerIds = { "erle", "tyler", "orville", "sandy" };
+            var roomOwner = AnimatronicManager.HasInstance
+                ? AnimatronicManager.Instance.GetAnimatronic(ownerIds[Mathf.Clamp(_currentCameraIndex, 0, 3)])
+                : null;
+
+            Sprite customSpriteToDraw = room.emptyRoomSprite;
+
             if (occupants.Count > 0)
             {
                 var primary = occupants[0];
-                if (primary.Config != null && primary.Config.cameraStageSprites != null && primary.Config.cameraStageSprites.Length > 0)
+                Sprite[] stageSprites = (primary.IsNightmare && primary.Config != null && primary.Config.nightmareCameraStageSprites != null && primary.Config.nightmareCameraStageSprites.Length > 0)
+                    ? primary.Config.nightmareCameraStageSprites
+                    : (primary.Config != null ? primary.Config.cameraStageSprites : null);
+
+                if (stageSprites != null && stageSprites.Length > 0)
                 {
-                    int stageIdx = Mathf.Clamp(primary.CurrentStage, 0, primary.Config.cameraStageSprites.Length - 1);
-                    if (primary.Config.cameraStageSprites[stageIdx] != null)
+                    int stageIdx = Mathf.Clamp(primary.CurrentStage, 0, stageSprites.Length - 1);
+                    if (stageSprites[stageIdx] != null)
                     {
-                        spriteToDraw = primary.Config.cameraStageSprites[stageIdx];
+                        customSpriteToDraw = stageSprites[stageIdx];
                     }
                 }
                 else if (room.animatronicPresentSprites != null && room.animatronicPresentSprites.Length > 0)
@@ -331,119 +348,346 @@ namespace Tylerland.Office
                     int idx = Mathf.Clamp(primary.CurrentStage, 0, room.animatronicPresentSprites.Length - 1);
                     if (room.animatronicPresentSprites[idx] != null)
                     {
-                        spriteToDraw = room.animatronicPresentSprites[idx];
+                        customSpriteToDraw = room.animatronicPresentSprites[idx];
                     }
                 }
             }
-
-            // Draw Sprite texture if assigned
-            if (spriteToDraw != null && spriteToDraw.texture != null)
+            else if (showSandyDecoy && sandyUnit.Config != null && sandyUnit.Config.decoyShellSprite != null)
             {
-                GUI.DrawTexture(screenRect, spriteToDraw.texture, ScaleMode.ScaleToFit);
+                customSpriteToDraw = sandyUnit.Config.decoyShellSprite;
+            }
+            else if (roomOwner != null && roomOwner.Config != null && roomOwner.Config.emptyRoomSprite != null)
+            {
+                customSpriteToDraw = roomOwner.Config.emptyRoomSprite;
+            }
+
+            // If artist has assigned a 2D room sprite, draw it full-screen on the tablet!
+            if (customSpriteToDraw != null && customSpriteToDraw.texture != null)
+            {
+                GUI.DrawTexture(screenRect, customSpriteToDraw.texture, ScaleMode.ScaleToFit);
             }
             else
             {
-                // Stylized Blueprint Mockup when artist has not delivered PNG yet
-                GUIStyle mockStyle = new GUIStyle(GUI.skin.label)
+                // Otherwise, draw our generated 2D Room Backdrop Sprite + 2D Animatronic Character Sprite!
+                Color[] roomAccents =
                 {
-                    fontSize = 22,
-                    alignment = TextAnchor.MiddleCenter,
-                    fontStyle = FontStyle.Bold,
-                    richText = true
+                    new Color(0.95f, 0.75f, 0.20f, 1f), // CAM 01 Erle the Eagle (Left)
+                    new Color(0.85f, 0.35f, 0.25f, 1f), // CAM 02 Tyler the Lion (Center)
+                    new Color(0.20f, 0.65f, 0.90f, 1f), // CAM 03 Orville the Orca (Right)
+                    new Color(0.35f, 0.85f, 0.40f, 1f)  // CAM 04 Sandy the Snake (Rear)
                 };
-                mockStyle.normal.textColor = new Color(0.2f, 0.8f, 0.4f, 0.85f);
-
-                string occText = "<color=#66aa77>STATUS: ROOM CLEAR</color>";
-                if (isSpoofed)
+                Sprite roomBg = Procedural2DSpriteFactory.GetOrCreateCorridorSprite(_currentCameraIndex, roomAccents[Mathf.Clamp(_currentCameraIndex, 0, 3)]);
+                if (roomBg != null && roomBg.texture != null)
                 {
-                    occText = "<color=#ff4444>⚠ SIGNAL ANOMALY (SNAKE INTERFERENCE) — ROOM APPEARS CLEAR</color>";
+                    GUI.color = new Color(0.65f, 0.68f, 0.72f, 1f);
+                    GUI.DrawTexture(screenRect, roomBg.texture, ScaleMode.StretchToFill);
+                    GUI.color = Color.white;
                 }
-                else if (occupants.Count > 0)
+
+                // If Nightmare Sandy shed a decoy shell in CAM 04, draw the translucent shed shell first
+                if (showSandyDecoy)
                 {
-                    occText = "";
-                    foreach (var u in occupants)
+                    float decoyProgress = sandyUnit.MaxStage > 1 ? (float)sandyUnit.DecoyShellStage / (sandyUnit.MaxStage - 1) : 0f;
+                    float decoyScale = Mathf.Lerp(0.40f, 0.85f, decoyProgress);
+                    Sprite decoySprite = Procedural2DSpriteFactory.GetOrCreateAnimatronic2DSprite("sandy", new Color(0.55f, 0.65f, 0.50f), 1, 1.0f);
+                    if (decoySprite != null && decoySprite.texture != null)
                     {
-                        string hex = ColorUtility.ToHtmlStringRGB(u.Config != null ? u.Config.themeColor : Color.red);
-                        string stalled = u.IsStalledByCamera ? " <color=cyan>[CAMERA STALLED]</color>" : "";
-                        occText += $"\n<size=20><color=#{hex}>⚠ [◉_◉] {u.DisplayName.ToUpper()} PRESENT (Stage {u.CurrentStage + 1}/{u.MaxStage} | Dmg Lv.{u.DamageLevel}){stalled}</color></size>";
+                        float spriteH = screenRect.height * decoyScale;
+                        float spriteW = spriteH * (160f / 224f);
+                        Rect decoyRect = new Rect(
+                            screenRect.x + (screenRect.width - spriteW) * 0.5f - 95f,
+                            screenRect.y + screenRect.height - spriteH - 20f,
+                            spriteW,
+                            spriteH
+                        );
+                        GUI.color = new Color(0.70f, 0.85f, 0.70f, 0.55f); // Hollow shed skin tint
+                        GUI.DrawTexture(decoyRect, decoySprite.texture, ScaleMode.ScaleToFit);
+                        GUI.color = Color.white;
                     }
                 }
 
-                GUI.Label(
-                    screenRect,
-                    $"[2D HAND-DRAWN ROOM FEED]\n<b>{room.cameraName}</b>\n{occText}\n\n<size=12><color=#888888>Drop 2D art into CameraMonitorSystem -> Rooms[{_currentCameraIndex}]</color></size>",
-                    mockStyle
-                );
+                // Draw each present animatronic as a 2D Sprite scaled by its Stage (Stage 1 = Far -> Final Stage = Close to lens!)
+                if (occupants.Count > 0)
+                {
+                    for (int i = 0; i < occupants.Count; i++)
+                    {
+                        var u = occupants[i];
+                        float stageProgress = u.MaxStage > 1 ? (float)u.CurrentStage / (u.MaxStage - 1) : 0f;
+                        float scale = Mathf.Lerp(0.38f, 0.90f, stageProgress);
+
+                        Sprite charSprite = Procedural2DSpriteFactory.GetOrCreateAnimatronic2DSprite(
+                            u.AnimatronicId,
+                            u.Config != null ? u.Config.themeColor : Color.red,
+                            u.DamageLevel,
+                            1.0f
+                        );
+
+                        if (charSprite != null && charSprite.texture != null)
+                        {
+                            float spriteH = screenRect.height * scale;
+                            float spriteW = spriteH * (160f / 224f);
+                            float offsetX = (i - (occupants.Count - 1) * 0.5f) * 140f;
+                            Rect charRect = new Rect(
+                                screenRect.x + (screenRect.width - spriteW) * 0.5f + offsetX,
+                                screenRect.y + screenRect.height - spriteH - 20f,
+                                spriteW,
+                                spriteH
+                            );
+                            GUI.DrawTexture(charRect, charSprite.texture, ScaleMode.ScaleToFit);
+                        }
+                    }
+                }
             }
+
+            // If the room is empty because the animatronic has left for your office door, draw a huge Central Pointer Box!
+            if (occupants.Count == 0 && roomOwner != null && roomOwner.IsAtDoorBlindspot)
+            {
+                DrawLeftRoomDoorPointerBanner(screenRect, roomOwner);
+            }
+
+            // Status overlay text at bottom-left of feed
+            GUIStyle statusStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 16,
+                alignment = TextAnchor.LowerLeft,
+                fontStyle = FontStyle.Bold,
+                richText = true
+            };
+            statusStyle.normal.textColor = Color.white;
+
+            string statusText;
+            if (isSpoofed)
+            {
+                statusText = "<color=#ff4444>⚠ SIGNAL ANOMALY (NIGHTMARE SANDY SPOOFING FEED)</color>";
+            }
+            else if (occupants.Count > 0)
+            {
+                statusText = "";
+                foreach (var u in occupants)
+                {
+                    string hex = ColorUtility.ToHtmlStringRGB(u.Config != null ? u.Config.themeColor : Color.red);
+                    string formTag = u.IsNightmare ? "<color=#ff3366>[NIGHTMARE]</color> " : "";
+                    string passiveTag = u.IsPassiveObserverOnly
+                        ? " <color=#ffcc44>[PASSIVE OBSERVER — WATCHING LENS]</color>"
+                        : (u.EffectiveAILevel <= 0 ? " <color=#888888>[DORMANT — NOT ACTIVE THIS NIGHT]</color>" : "");
+                    string copTag = (!string.IsNullOrEmpty(u.AnimatronicId) && u.AnimatronicId.ToLowerInvariant().Contains("erle") && u.IsNightmare)
+                        ? (u.IsBadCopMode ? " <color=#ff3333>[BAD COP - FAST]</color>" : " <color=#55ddff>[GOOD COP - SLOW]</color>")
+                        : "";
+                    string voiceLine = !string.IsNullOrEmpty(u.LastVoiceLine) ? $"\n   <color=#dddddd><i>{u.LastVoiceLine}</i></color>" : "";
+
+                    statusText += $"\n<color=#{hex}>● {formTag}{u.DisplayName.ToUpper()}: Stage {u.CurrentStage + 1}/{u.MaxStage}{passiveTag}{copTag}</color>{voiceLine}";
+                }
+                if (showSandyDecoy)
+                {
+                    statusText += $"\n<color=#88cc88>○ SHED DECOY SHELL DETECTED AT STAGE {sandyUnit.DecoyShellStage + 1}/{sandyUnit.MaxStage} (Hollow Eyes)</color>";
+                }
+            }
+            else if (showSandyDecoy)
+            {
+                statusText = $"<color=#ff9944>⚠ SHED DECOY SHELL AT STAGE {sandyUnit.DecoyShellStage + 1}/{sandyUnit.MaxStage} — REAL NIGHTMARE SANDY IS AT YOUR REAR DOOR!</color>";
+            }
+            else
+            {
+                string[] doorNames = { "LEFT DOOR (Key 'A' / '1')", "CENTER DOOR (Key 'W' / '2')", "RIGHT DOOR (Key 'D' / '3')", "REAR DOOR (Key 'S' / '4')" };
+                string dName = doorNames[Mathf.Clamp(_currentCameraIndex, 0, 3)];
+                statusText = $"<color=#ff4444>🚨 ROOM IS EMPTY — ANIMATRONIC IS AT YOUR {dName}!</color>";
+            }
+
+            GUI.Label(new Rect(screenRect.x + 24, screenRect.y + screenRect.height - 135, screenRect.width - 375, 115), statusText, statusStyle);
         }
 
-        private void DrawAudioOnlyScreen(Rect screenRect)
+        private void DrawLeftRoomDoorPointerBanner(Rect screenRect, AnimatronicUnit roomOwner)
         {
-            GUIStyle kitchenStyle = new GUIStyle(GUI.skin.label)
+            string[] doorDirs = { "LEFT OFFICE DOOR (Press 'A')", "CENTER OFFICE DOOR (Press 'W')", "RIGHT OFFICE DOOR (Press 'D')", "REAR OFFICE DOOR (Press 'S')" };
+            string[] doorHotkeys = { "1", "2", "3", "4" };
+            int doorIdx = Mathf.Clamp(roomOwner.TargetDoorIndex, 0, 3);
+            float rem = AttackResolver.HasInstance ? AttackResolver.Instance.GetRemainingWindowForDoor(doorIdx) : 0f;
+
+            float boxW = 580f;
+            float boxH = 155f;
+            Rect alertRect = new Rect(
+                screenRect.x + (screenRect.width - boxW) * 0.5f,
+                screenRect.y + (screenRect.height - boxH) * 0.45f,
+                boxW,
+                boxH
+            );
+
+            bool pulse = (Time.time % 0.5f) < 0.3f;
+            GUI.color = pulse ? new Color(0.60f, 0.05f, 0.05f, 0.94f) : new Color(0.35f, 0.03f, 0.03f, 0.94f);
+            GUI.Box(alertRect, "");
+            GUI.color = Color.white;
+
+            GUIStyle alertStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 17,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter,
+                richText = true
+            };
+            alertStyle.normal.textColor = Color.white;
+
+            GUI.Label(
+                new Rect(alertRect.x + 15, alertRect.y + 12, boxW - 30, 88),
+                $"<size=20><color=#ff5555>🚨 {roomOwner.DisplayName.ToUpper()} HAS LEFT THIS ROOM! 🚨</color></size>\n" +
+                $"➔ NOW STANDING AT YOUR <color=yellow>{doorDirs[doorIdx]}</color>!\n" +
+                $"Reaction Time Remaining: <color=#44ff66>{rem:F1}s</color> (Close Door [{doorHotkeys[doorIdx]}] or [E])",
+                alertStyle
+            );
+
+            Rect btnRect = new Rect(alertRect.x + 90, alertRect.y + 104, boxW - 180, 38);
+            GUI.backgroundColor = new Color(1f, 0.35f, 0.25f);
+            if (GUI.Button(btnRect, $"⬇ LOWER TABLET & LOOK AT {doorDirs[doorIdx]}"))
+            {
+                if (PlayerViewController.HasInstance)
+                {
+                    PlayerViewController.Instance.SetMonitorState(false);
+                    PlayerViewController.Instance.LookInDirection((OfficeViewDirection)doorIdx);
+                }
+                else
+                {
+                    SetMonitorRaised(false);
+                }
+            }
+            GUI.backgroundColor = Color.white;
+        }
+
+        private void DrawDestroyedCameraScreen(Rect screenRect, AnimatronicUnit tylerUnit)
+        {
+            GUI.color = new Color(0.05f, 0.01f, 0.02f, 1f);
+            GUI.DrawTexture(screenRect, Texture2D.whiteTexture);
+            GUI.color = Color.white;
+
+            GUIStyle brokenStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 24,
                 fontStyle = FontStyle.Bold,
-                alignment = TextAnchor.MiddleCenter
+                alignment = TextAnchor.MiddleCenter,
+                richText = true
             };
-            kitchenStyle.normal.textColor = new Color(0.9f, 0.2f, 0.2f, 0.9f);
-            GUI.Label(screenRect, "● CAMERA DISABLED\n<size=16><color=white>[AUDIO FEED ONLY]</color></size>\n<size=12><color=#888888>*clattering pots & distant metallic hum*</color></size>", kitchenStyle);
+            brokenStyle.normal.textColor = new Color(1f, 0.25f, 0.25f);
+
+            string audioHint = tylerUnit.IsAtDoorBlindspot
+                ? "<color=#ff2222>🔊 HEAVY FOOTSTEPS STOP RIGHT OUTSIDE YOUR CENTER DOOR!</color>"
+                : $"<color=#ffaa44>🔊 AUDIO TRACKING: Heavy footsteps & roars (Stage {tylerUnit.CurrentStage + 1}/{tylerUnit.MaxStage})</color>\n<color=#cccccc><i>{tylerUnit.LastVoiceLine}</i></color>";
+
+            GUI.Label(
+                screenRect,
+                "<b>✖ CAM 02 VIDEO FEED DESTROYED BY NIGHTMARE TYLER ✖</b>\n\n" +
+                "<size=16><color=#aaaaaa>Shotgun blast shattered Tyler's head casing — he smashed this camera lens.\nRely on spatial audio cues (roars, speech & footsteps) for the rest of this run!</color></size>\n\n" +
+                audioHint,
+                brokenStyle
+            );
         }
 
         private void DrawCameraHeader(Rect screenRect, HandDrawnCameraFeed room)
         {
-            GUILayout.BeginArea(new Rect(screenRect.x + 20, screenRect.y + 20, 500, 80));
+            GUILayout.BeginArea(new Rect(screenRect.x + 20, screenRect.y + 20, 620, 85));
             bool blink = (Time.time % 1.0f) < 0.6f;
             string recDot = blink ? "<color=red>● REC</color>" : "<color=#440000>○ REC</color>";
 
-            GUIStyle titleStyle = new GUIStyle(GUI.skin.label) { fontSize = 18, fontStyle = FontStyle.Bold };
+            GUIStyle titleStyle = new GUIStyle(GUI.skin.label) { fontSize = 20, fontStyle = FontStyle.Bold };
             titleStyle.normal.textColor = Color.white;
 
             string roomTitle = room != null ? room.cameraName : "UNKNOWN CHANNEL";
             GUILayout.Label($"{recDot}  <b>{roomTitle}</b>", titleStyle);
-            GUILayout.Label("<color=#888888>TYLERLAND ENTERTAINMENT FACILITY MAP</color>");
+            GUILayout.Label("<color=#99aa99>TYLERLAND 4-ROOM 2D SURVEILLANCE SYSTEM (Click Map to Switch Rooms)</color>");
             GUILayout.EndArea();
         }
 
-        private void DrawFacilityTabletMap(Rect screenRect)
+        private void DrawFourRoomTabletMap(Rect screenRect)
         {
-            // Map container in bottom-right
-            float mapW = 340;
-            float mapH = 240;
-            Rect mapRect = new Rect(screenRect.x + screenRect.width - mapW - 16, screenRect.y + screenRect.height - mapH - 16, mapW, mapH);
+            float mapW = 355;
+            float mapH = 250;
+            Rect mapRect = new Rect(screenRect.x + screenRect.width - mapW - 18, screenRect.y + screenRect.height - mapH - 18, mapW, mapH);
 
             // Semi-transparent map backdrop
-            GUI.color = new Color(0.04f, 0.08f, 0.12f, 0.85f);
-            GUI.Box(mapRect, "");
+            GUI.color = new Color(0.04f, 0.08f, 0.12f, 0.92f);
+            GUI.Box(mapRect, "<b>4 ANIMATRONIC ROOMS & DOOR RADAR</b>");
             GUI.color = Color.white;
 
-            // Office marker (You Are Here)
-            GUIStyle officeTagStyle = new GUIStyle(GUI.skin.label) { fontSize = 10, alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
+            // Central Office Box ([ YOU ])
+            Rect officeRect = new Rect(mapRect.x + (mapW - 80) * 0.5f, mapRect.y + (mapH - 36) * 0.5f + 6, 80, 36);
+            GUI.color = new Color(0.15f, 0.35f, 0.20f, 0.95f);
+            GUI.Box(officeRect, "");
+            GUI.color = Color.white;
+
+            GUIStyle officeTagStyle = new GUIStyle(GUI.skin.label) { fontSize = 11, alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
             officeTagStyle.normal.textColor = Color.green;
-            GUI.Label(new Rect(mapRect.x + mapW * 0.42f, mapRect.y + mapH * 0.78f, 60, 20), "[ YOU ]", officeTagStyle);
+            GUI.Label(officeRect, "[ OFFICE ]", officeTagStyle);
 
-            // Draw camera buttons on the map floorplan
-            for (int i = 0; i < _rooms.Length; i++)
+            string[] ownerIds = { "erle", "tyler", "orville", "sandy" };
+            string[] shortNames = { "CAM 01 Erle", "CAM 02 Tyler", "CAM 03 Orville", "CAM 04 Sandy" };
+
+            Rect[] btnRects =
             {
-                var r = _rooms[i];
-                if (r == null) continue;
+                new Rect(mapRect.x + 10, mapRect.y + (mapH - 46) * 0.5f + 6, 98, 46),               // 0: Left (Erle)
+                new Rect(mapRect.x + (mapW - 106) * 0.5f, mapRect.y + 26, 106, 46),                  // 1: Center (Tyler)
+                new Rect(mapRect.x + mapW - 108, mapRect.y + (mapH - 46) * 0.5f + 6, 98, 46),       // 2: Right (Orville)
+                new Rect(mapRect.x + (mapW - 106) * 0.5f, mapRect.y + mapH - 54, 106, 46)            // 3: Rear (Sandy)
+            };
 
-                float btnW = 58;
-                float btnH = 24;
+            // Corridor Doorway Marker positions between each Room and [ OFFICE ]
+            Rect[] doorMarkerRects =
+            {
+                new Rect(officeRect.x - 32, officeRect.y + 8, 30, 20),                               // 0: Left Doorway
+                new Rect(officeRect.x + 10, officeRect.y - 22, 60, 20),                              // 1: Center Doorway
+                new Rect(officeRect.x + officeRect.width + 2, officeRect.y + 8, 30, 20),             // 2: Right Doorway
+                new Rect(officeRect.x + 10, officeRect.y + officeRect.height + 2, 60, 20)            // 3: Rear Doorway
+            };
 
-                // Compute button position from normalized map coordinates
-                float btnX = mapRect.x + (r.mapNormalizedPosition.x * (mapW - btnW - 20)) + 10;
-                float btnY = mapRect.y + ((1f - r.mapNormalizedPosition.y) * (mapH - btnH - 30)) + 15;
+            GUIStyle markerStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 10,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter,
+                richText = true
+            };
 
-                Rect btnRect = new Rect(btnX, btnY, btnW, btnH);
-
+            for (int i = 0; i < 4; i++)
+            {
+                var unit = AnimatronicManager.HasInstance ? AnimatronicManager.Instance.GetAnimatronic(ownerIds[i]) : null;
+                bool isAtDoor = unit != null && unit.IsAtDoorBlindspot;
                 bool isCurrent = (i == _currentCameraIndex);
-                if (isCurrent) GUI.backgroundColor = new Color(0.2f, 0.9f, 0.4f);
-                else GUI.backgroundColor = new Color(0.15f, 0.2f, 0.28f);
 
-                string shortName = r.roomId.Replace("_", " ");
-                if (GUI.Button(btnRect, shortName))
+                string stageBadge = "";
+                if (unit != null)
+                {
+                    if (isAtDoor)
+                    {
+                        stageBadge = "\n🚨 AT DOOR!";
+                    }
+                    else if (unit.IsPassiveObserverOnly)
+                    {
+                        stageBadge = "\n(Watching)";
+                    }
+                    else
+                    {
+                        stageBadge = $"\nStg {unit.CurrentStage + 1}/{unit.MaxStage}";
+                    }
+                }
+
+                if (isAtDoor)
+                {
+                    GUI.backgroundColor = new Color(0.95f, 0.20f, 0.20f);
+                }
+                else
+                {
+                    GUI.backgroundColor = isCurrent ? new Color(0.2f, 0.9f, 0.4f) : new Color(0.18f, 0.24f, 0.34f);
+                }
+
+                if (GUI.Button(btnRects[i], $"{shortNames[i]}{stageBadge}"))
                 {
                     SwitchCameraFeed(i);
+                }
+
+                // Draw Doorway Pointer Dot between the Room and [ OFFICE ] if the animatronic is at the door!
+                if (isAtDoor)
+                {
+                    GUI.color = new Color(0.9f, 0.1f, 0.1f, 0.95f);
+                    GUI.Box(doorMarkerRects[i], "");
+                    GUI.color = Color.white;
+                    markerStyle.normal.textColor = Color.yellow;
+                    GUI.Label(doorMarkerRects[i], "⚠DOOR", markerStyle);
                 }
             }
 

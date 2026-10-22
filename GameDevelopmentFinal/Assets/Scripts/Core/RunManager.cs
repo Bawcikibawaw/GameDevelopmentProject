@@ -71,11 +71,15 @@ namespace Tylerland.Core
 
         public int GetAnimatronicDamage(string animatronicId)
         {
+            if (string.IsNullOrEmpty(animatronicId)) return 0;
             switch (animatronicId.ToLower())
             {
                 case "tyler": return damageTyler;
+                case "orville":
                 case "shark": return damageShark;
+                case "erle":
                 case "eagle": return damageEagle;
+                case "sandy":
                 case "snake": return damageSnake;
                 default: return 0;
             }
@@ -83,15 +87,32 @@ namespace Tylerland.Core
 
         public void SetAnimatronicDamage(string animatronicId, int level)
         {
+            if (string.IsNullOrEmpty(animatronicId)) return;
             level = Mathf.Clamp(level, 0, 3);
             switch (animatronicId.ToLower())
             {
                 case "tyler": damageTyler = level; break;
+                case "orville":
                 case "shark": damageShark = level; break;
+                case "erle":
                 case "eagle": damageEagle = level; break;
+                case "sandy":
                 case "snake": damageSnake = level; break;
             }
         }
+
+        public bool IsNightmareState(string animatronicId)
+        {
+            return GetAnimatronicDamage(animatronicId) > 0;
+        }
+
+        /// <summary>
+        /// GDD §4.1.2 & §4.7 True Ending Rule:
+        /// Returns true if all FOUR regular animatronics (Tyler, Orville, Sandy, Erle)
+        /// have been transformed into their Nightmare forms within the SAME run.
+        /// </summary>
+        public bool AllFourNightmaresActive =>
+            damageTyler > 0 && damageShark > 0 && damageEagle > 0 && damageSnake > 0;
     }
 
     /// <summary>
@@ -142,14 +163,29 @@ namespace Tylerland.Core
 
         #region Run Controls
         /// <summary>
-        /// Begins a brand new run from Night 1, resetting all run currency and damage.
+        /// Begins a brand new run from Night 1, resetting all run currency, damage, and Nightmare states,
+        /// while restoring 1 use of each permanently unlocked special weapon (GDD §4.1.2 & §4.7).
         /// </summary>
         public void StartNewRun()
         {
             int seed = UnityEngine.Random.Range(100000, 999999);
             _runState.Reset(seed);
             UnityEngine.Random.InitState(seed);
-            Debug.Log($"[RunManager] New run started. RNG Seed={seed}, Night={_runState.currentNight}");
+
+            // Restore 1 use of every permanently unlocked special weapon from MetaProgressionManager
+            if (MetaProgressionManager.HasInstance)
+            {
+                string[] allWeapons = { "Electric Gun", "Shotgun", "Harpoon", "Spiked Mace" };
+                foreach (var w in allWeapons)
+                {
+                    if (MetaProgressionManager.Instance.HasUnlockedSoulItem(w))
+                    {
+                        _runState.weaponsOwned.Add(w);
+                    }
+                }
+            }
+
+            Debug.Log($"[RunManager] New run started. RNG Seed={seed}, Night={_runState.currentNight}, Restored Weapons={_runState.weaponsOwned.Count}");
         }
 
         /// <summary>

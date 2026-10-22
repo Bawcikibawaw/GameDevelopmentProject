@@ -364,16 +364,17 @@ namespace Tylerland.Office
 
         private void UpdateSpriteForState(DoorState state)
         {
-            bool has2DSprite = (_closedSprite != null || _openSprite != null || _brokenSprite != null);
-
             if (_placeholder3DSlabRenderer != null)
             {
-                _placeholder3DSlabRenderer.enabled = !has2DSprite;
+                _placeholder3DSlabRenderer.enabled = false;
             }
 
             if (_doorSpriteRenderer == null) return;
 
-            Sprite activeSprite = _closedSprite;
+            Sprite activeSprite = _closedSprite != null
+                ? _closedSprite
+                : Procedural2DSpriteFactory.GetOrCreateDoorShutterSprite(_doorIndex);
+
             if (state == DoorState.Broken && _brokenSprite != null)
             {
                 activeSprite = _brokenSprite;
@@ -411,7 +412,7 @@ namespace Tylerland.Office
 
         public void ApplyDurabilityWear(float amount)
         {
-            if (_state == DoorState.Broken) return;
+            if (_state == DoorState.Broken || amount <= 0f) return;
 
             _currentDurability = Mathf.Max(0f, _currentDurability - amount);
             GameEvents.TriggerDoorStatsChanged(_doorIndex, _currentEnergy, _currentDurability);
@@ -419,6 +420,19 @@ namespace Tylerland.Office
             if (_currentDurability <= 0f)
             {
                 BreakDoor();
+            }
+        }
+
+        public void ApplyEnergyDrain(float amount)
+        {
+            if (_state == DoorState.Broken || amount <= 0f) return;
+
+            _currentEnergy = Mathf.Max(0f, _currentEnergy - amount);
+            GameEvents.TriggerDoorStatsChanged(_doorIndex, _currentEnergy, _currentDurability);
+
+            if (_currentEnergy <= 0f && !_isLockedOut)
+            {
+                TriggerEnergyDepletionLockout();
             }
         }
 

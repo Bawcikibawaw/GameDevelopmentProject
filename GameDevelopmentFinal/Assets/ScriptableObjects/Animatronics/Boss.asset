@@ -13,24 +13,42 @@ MonoBehaviour:
   m_Name: Boss
   m_EditorClassIdentifier: Assembly-CSharp::Tylerland.Config.AnimatronicConfig
   animatronicId: boss
-  displayName: Boss
-  themeColor: {r: 0.8, g: 0.15, b: 0.85, a: 1}
+  displayName: The Amalgam (True Final Boss)
+  formerRole: True Ending Culmination
+  themeColor: {r: 0.75, g: 0.15, b: 0.9, a: 1}
   targetDoorIndex: 1
-  cameraRouteIndices: 0000000001000000020000000500000009000000
+  activeFromNight: 6
+  passiveObserverBeforeActiveNight: 0
+  normalStageCount: 4
+  nightmareStageCount: 4
+  cameraRouteIndices: 0100000001000000010000000100000001000000
   retreatStageIndex: 1
-  baseTickInterval: 3.4
-  lateNightAIRamp: 4
-  attackWindowSeconds: 3.2
-  cameraBehavior: 3
-  counterWeaponId: Shears
+  attackWindowSeconds: 6
+  nightmareAttackWindowSeconds: 5.5
+  extraDurabilityLossOnBlock: 15
+  energyDrainOnNormalBlock: 10
+  energyDrainOnNightmareBlock: 15
+  baseTickInterval: 3
+  lateNightAIRamp: 3
+  cameraBehavior: 0
+  counterWeaponId: Shotgun
   cameraStageSprites: []
+  nightmareCameraStageSprites:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  decoyShellSprite: {fileID: 0}
+  emptyRoomSprite: {fileID: 0}
   doorwaySpritesByDamage:
   - {fileID: 0}
   - {fileID: 0}
   - {fileID: 0}
   - {fileID: 0}
   jumpscareFrames: []
+  nightmareJumpscareFrames: []
   footstepSound: {fileID: 0}
   blindspotWarningSound: {fileID: 0}
   doorBlockedBangSound: {fileID: 0}
   jumpscareScreamSound: {fileID: 0}
+  nightmareJumpscareScreamSound: {fileID: 0}

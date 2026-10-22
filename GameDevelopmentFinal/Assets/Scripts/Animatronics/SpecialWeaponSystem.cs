@@ -6,20 +6,20 @@ using Tylerland.Office;
 namespace Tylerland.Animatronics
 {
     /// <summary>
-    /// Section 5.5: One-Use Special Weapons System.
-    /// Allows the player to counter an animatronic lurking in a doorway blindspot using its matching weapon:
-    /// - Door 0 (Left - Shark):   "Harpoon"
-    /// - Door 1 (Center - Tyler): "Shears"
-    /// - Door 2 (Right - Eagle):  "Net"
-    /// - Door 3 (Back - Snake):   "Prod"
-    /// Inflicts +1 Damage Level on the animatronic (which increases future repair costs & awards Soul Coins)
-    /// and forces an immediate retreat to Stage 0 without draining door energy.
+    /// Section 4.1.2 & 4.7 GDD: Permanent Weapons & Nightmare Transformations.
+    /// Each character-specific minigame permanently unlocks a special weapon (stored in MetaProgressionManager),
+    /// with 1 use restored every run:
+    /// - Door 0 (LEFT  - Erle the Eagle):   "Electric Gun" -> Triggers Nightmare Erle (Good Cop / Bad Cop, 12s window)
+    /// - Door 1 (CENTER - Tyler the Lion):  "Shotgun"      -> Triggers Nightmare Tyler (Destroys CAM 02, halts attacks tonight)
+    /// - Door 2 (RIGHT - Orville the Orca): "Harpoon"      -> Triggers Nightmare Orville (Watching CAM 03 advances him)
+    /// - Door 3 (REAR  - Sandy the Snake):  "Spiked Mace"  -> Triggers Nightmare Sandy (5 stages, Decoy Shells, 8s window)
+    /// TRUE ENDING RULE: Transform all FOUR regular animatronics into Nightmare forms within the SAME run!
     /// </summary>
     public class SpecialWeaponSystem : Singleton<SpecialWeaponSystem>
     {
         [Header("Settings")]
-        [Tooltip("If true, grants 1 of each weapon at the start of Night 1 for easy testing")]
-        [SerializeField] private bool _grantStarterWeaponsForTesting = true;
+        [Tooltip("If true, permanently unlocks all 4 weapons on Start for immediate playtesting")]
+        [SerializeField] private bool _unlockStarterWeaponsForTesting = true;
 
         private string _lastStatusMessage = "";
         private float _statusMessageTimer = 0f;
@@ -28,7 +28,7 @@ namespace Tylerland.Animatronics
 
         private void Start()
         {
-            if (_grantStarterWeaponsForTesting && RunManager.HasInstance)
+            if (_unlockStarterWeaponsForTesting && RunManager.HasInstance)
             {
                 GrantAllWeapons();
             }
@@ -47,7 +47,7 @@ namespace Tylerland.Animatronics
             var keyboard = Keyboard.current;
             if (keyboard == null) return;
 
-            // 'Q' Key: Deploy Special Weapon at the currently faced doorway!
+            // 'Q' Key: Fire Special Weapon at the currently faced doorway!
             if (keyboard.qKey.wasPressedThisFrame)
             {
                 int facedDoor = PlayerViewController.HasInstance
@@ -56,22 +56,26 @@ namespace Tylerland.Animatronics
                 TryUseWeaponAtDoor(facedDoor);
             }
 
-            // 'G' Key (Debug/Testing): Grant all 4 counter-weapons
+            // 'G' Key (Testing): Permanently unlock & restore all 4 counter-weapons
             if (keyboard.gKey.wasPressedThisFrame)
             {
                 GrantAllWeapons();
-                ShowStatus("Granted all 4 Special Weapons (Harpoon, Shears, Net, Prod)!");
+                ShowStatus("Unlocked & restored all 4 Special Weapons (Electric Gun, Shotgun, Harpoon, Spiked Mace)!");
             }
         }
 
-        [ContextMenu("Grant All 4 Weapons")]
+        [ContextMenu("Unlock & Grant All 4 Weapons")]
         public void GrantAllWeapons()
         {
             if (!RunManager.HasInstance) return;
-            string[] weapons = { "Harpoon", "Shears", "Net", "Prod" };
+            string[] weapons = { "Electric Gun", "Shotgun", "Harpoon", "Spiked Mace" };
             foreach (var w in weapons)
             {
-                if (!RunManager.Instance.State.weaponsOwned.Contains(w))
+                if (MetaProgressionManager.HasInstance)
+                {
+                    MetaProgressionManager.Instance.UnlockSoulItem(w);
+                }
+                if (!RunManager.Instance.State.weaponsOwned.Contains(w) && !RunManager.Instance.State.weaponsUsed.Contains(w))
                 {
                     RunManager.Instance.AddWeapon(w);
                 }
@@ -79,7 +83,25 @@ namespace Tylerland.Animatronics
         }
 
         /// <summary>
-        /// Attempts to deploy the matching counter-weapon against an animatronic in the specified doorway blindspot.
+        /// Permanently unlocks a weapon from a post-night minigame so it is available (1 use per run) in all future runs.
+        /// </summary>
+        public void UnlockWeaponFromMinigame(string weaponId)
+        {
+            if (string.IsNullOrEmpty(weaponId)) return;
+            if (MetaProgressionManager.HasInstance)
+            {
+                MetaProgressionManager.Instance.UnlockSoulItem(weaponId);
+            }
+            if (RunManager.HasInstance && !RunManager.Instance.State.weaponsOwned.Contains(weaponId) && !RunManager.Instance.State.weaponsUsed.Contains(weaponId))
+            {
+                RunManager.Instance.AddWeapon(weaponId);
+            }
+            ShowStatus($"★ Permanently Unlocked Weapon: {weaponId} (1 use per run)!");
+        }
+
+        /// <summary>
+        /// Deploys the matching counter-weapon against an animatronic attacking the specified doorway.
+        /// Interrupts the attack, causes visible damage (reducing salary), and triggers its Nightmare state!
         /// </summary>
         public bool TryUseWeaponAtDoor(int doorIndex)
         {
@@ -88,7 +110,7 @@ namespace Tylerland.Animatronics
             var unit = AnimatronicManager.Instance.GetAnimatronicAtDoorBlindspot(doorIndex);
             if (unit == null)
             {
-                ShowStatus("No animatronic in this doorway blindspot to use a weapon on!");
+                ShowStatus("No animatronic attacking this doorway to use a weapon on!");
                 return false;
             }
 
@@ -98,36 +120,38 @@ namespace Tylerland.Animatronics
 
             if (!RunManager.Instance.State.weaponsOwned.Contains(requiredWeapon))
             {
-                ShowStatus($"Missing counter-weapon '{requiredWeapon}' for {unit.DisplayName}! (Press 'G' to grant test weapons)");
+                ShowStatus($"Missing '{requiredWeapon}' for {unit.DisplayName}! (Press 'G' to unlock/restore weapons)");
                 return false;
             }
 
-            // Consume weapon
+            // 1. Consume the 1-per-run weapon use
             RunManager.Instance.UseWeapon(requiredWeapon);
 
-            // Cancel active kill countdown in AttackResolver
+            // 2. Interrupt active kill countdown in AttackResolver
             if (AttackResolver.HasInstance)
             {
                 AttackResolver.Instance.CancelThreatForAnimatronic(unit.AnimatronicId);
             }
 
-            // Inflict +1 Damage Level on this animatronic in RunState
+            // 3. Inflict damage & trigger Nightmare state in RunState
             RunManager.Instance.InflictDamage(unit.AnimatronicId, 1);
-            unit.RefreshDamageState();
+            unit.OnHitBySpecialWeapon();
             unit.RecalculateEffectiveAI(NightClock.HasInstance ? NightClock.Instance.HourBlendFactor : 0f);
 
-            // Award +1 Soul Coin for damaging an animatronic (Roadmap 6.3)
+            // 4. Award +1 Soul Coin
             if (MetaProgressionManager.HasInstance)
             {
                 MetaProgressionManager.Instance.AddSoulCoins(1);
             }
 
-            // Force animatronic all the way back to Stage 0!
-            unit.ForceRetreatToStage(0);
+            string msg = $"⚡ Fired {requiredWeapon} at {unit.DisplayName}! Attack interrupted -> NIGHTMARE FORM TRIGGERED!";
+            if (RunManager.Instance.State.AllFourNightmaresActive)
+            {
+                msg = "🔥 ALL 4 NIGHTMARES TRIGGERED IN THIS RUN! TRUE ENDING BOSS ROUTE UNLOCKED!";
+            }
 
-            string msg = $"⚡ Used {requiredWeapon} on {unit.DisplayName}! Stunned to Stage 0! (Damage Lv.{unit.DamageLevel}/3, +1 Soul Coin)";
             ShowStatus(msg);
-            Debug.Log($"[SpecialWeaponSystem] {msg}");
+            Debug.LogWarning($"[SpecialWeaponSystem] {msg}");
             return true;
         }
 
@@ -135,18 +159,18 @@ namespace Tylerland.Animatronics
         {
             switch (doorIndex)
             {
-                case 0: return "Harpoon"; // Left (Shark)
-                case 1: return "Shears";  // Center (Tyler)
-                case 2: return "Net";     // Right (Eagle)
-                case 3: return "Prod";    // Back (Snake)
-                default: return "Shears";
+                case 0: return "Electric Gun"; // Left Door (Erle the Eagle)
+                case 1: return "Shotgun";      // Center Door (Tyler the Lion)
+                case 2: return "Harpoon";      // Right Door (Orville the Orca)
+                case 3: return "Spiked Mace";  // Rear Door (Sandy the Snake)
+                default: return "Shotgun";
             }
         }
 
         private void ShowStatus(string msg)
         {
             _lastStatusMessage = msg;
-            _statusMessageTimer = 3.5f;
+            _statusMessageTimer = 4.5f;
         }
     }
 }

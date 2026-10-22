@@ -1,0 +1,58 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8e2941b8300bfd24db7c6146b8e084a1, type: 3}
+  m_Name: Sandy
+  m_EditorClassIdentifier: Assembly-CSharp::Tylerland.Config.AnimatronicConfig
+  animatronicId: sandy
+  displayName: Sandy the Snake
+  formerRole: Maintenance / repair mascot
+  themeColor: {r: 0.32, g: 0.82, b: 0.35, a: 1}
+  targetDoorIndex: 3
+  activeFromNight: 1
+  passiveObserverBeforeActiveNight: 0
+  normalStageCount: 4
+  nightmareStageCount: 5
+  cameraRouteIndices: 0300000003000000030000000300000003000000
+  retreatStageIndex: 0
+  attackWindowSeconds: 8
+  nightmareAttackWindowSeconds: 5.5
+  extraDurabilityLossOnBlock: 10
+  energyDrainOnNormalBlock: 0
+  energyDrainOnNightmareBlock: 25
+  baseTickInterval: 3.4
+  lateNightAIRamp: 3
+  cameraBehavior: 3
+  counterWeaponId: Spiked Mace
+  cameraStageSprites:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  nightmareCameraStageSprites:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  decoyShellSprite: {fileID: 0}
+  emptyRoomSprite: {fileID: 0}
+  doorwaySpritesByDamage:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  jumpscareFrames: []
+  nightmareJumpscareFrames: []
+  footstepSound: {fileID: 0}
+  blindspotWarningSound: {fileID: 0}
+  doorBlockedBangSound: {fileID: 0}
+  jumpscareScreamSound: {fileID: 0}
+  nightmareJumpscareScreamSound: {fileID: 0}

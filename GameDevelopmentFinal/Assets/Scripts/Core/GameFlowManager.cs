@@ -172,6 +172,20 @@ namespace Tylerland.Core
             // 4. Special state handling during black screen
             if (targetState == GameState.NightIntro)
             {
+                // Announce the night that is actually about to be played (e.g. Night 4 picked from the menu)
+                // so AnimatronicManager, NightClock, PhoneSystem etc. all initialize for THAT night.
+                // Skipped if this transition was itself triggered by an OnNightStarted event (avoids double init).
+                if (_suppressNextNightStartedBroadcast)
+                {
+                    _suppressNextNightStartedBroadcast = false;
+                }
+                else
+                {
+                    int night = RunManager.HasInstance ? RunManager.Instance.CurrentNight : 1;
+                    Debug.Log($"[GameFlowManager] Broadcasting OnNightStarted({night}) for NightIntro.");
+                    GameEvents.TriggerNightStarted(night);
+                }
+
                 // Show intro card while black/faded
                 yield return new WaitForSeconds(_nightIntroDuration);
                 // Auto-advance from NightIntro to NightActive
@@ -207,11 +221,17 @@ namespace Tylerland.Core
             }
         }
 
+        private bool _suppressNextNightStartedBroadcast = false;
+
         private void HandleNightStarted(int nightNumber)
         {
             if (_currentState != GameState.NightActive && _currentState != GameState.NightIntro)
             {
-                TransitionTo(GameState.NightIntro);
+                _suppressNextNightStartedBroadcast = true;
+                if (!TransitionTo(GameState.NightIntro))
+                {
+                    _suppressNextNightStartedBroadcast = false;
+                }
             }
         }
 

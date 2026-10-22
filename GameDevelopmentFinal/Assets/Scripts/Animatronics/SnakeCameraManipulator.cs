@@ -5,23 +5,24 @@ using Tylerland.Office;
 namespace Tylerland.Animatronics
 {
     /// <summary>
-    /// Section 5.3: Snake Camera Manipulation System.
-    /// As Snake advances through the back service vents toward the Back Door (Door 3),
-    /// it boosts static noise on the security tablet and periodically spoofs ("lies" on)
-    /// camera feeds to disorient the player.
+    /// Section 4.4.2 & 4.4.4 GDD: Sandy the Snake Camera Manipulation & Shedding Decoys.
+    /// Crucial GDD Rule:
+    /// - In NORMAL form, Sandy does NOT falsify camera information (straightforward camera-and-door loop).
+    /// - In NIGHTMARE form (after being hit by the Spiked Mace), Nightmare Sandy fabricates false camera evidence
+    ///   by shedding decoy shells on CAM 04 and boosting static interference!
     /// </summary>
     public class SnakeCameraManipulator : Singleton<SnakeCameraManipulator>
     {
-        [Header("Snake Interference Settings (Roadmap 5.3)")]
-        [Tooltip("Maximum camera static noise boost when Snake reaches the Back Door")]
+        [Header("Nightmare Sandy Interference Settings (GDD §4.4.4)")]
+        [Tooltip("Maximum camera static noise boost when Nightmare Sandy approaches the Rear Door")]
         [Range(0f, 0.85f)]
-        [SerializeField] private float _maxStaticBoost = 0.60f;
+        [SerializeField] private float _maxStaticBoost = 0.55f;
 
-        [Tooltip("Seconds between Snake attempting to spoof/corrupt a camera feed")]
-        [SerializeField] private float _spoofAttemptInterval = 8.0f;
+        [Tooltip("Seconds between Nightmare Sandy attempting to spoof/decoy CAM 04")]
+        [SerializeField] private float _spoofAttemptInterval = 7.0f;
 
-        [Tooltip("Duration in seconds that a spoofed camera feed lies to the player")]
-        [SerializeField] private float _spoofDuration = 4.5f;
+        [Tooltip("Duration in seconds that a decoy shell spoofs the camera feed")]
+        [SerializeField] private float _spoofDuration = 5.0f;
 
         [Header("Runtime State (Read Only)")]
         [SerializeField] private bool _isFeedCurrentlySpoofed = false;
@@ -56,15 +57,25 @@ namespace Tylerland.Animatronics
 
         private void HandleAnimatronicStageChanged(string animatronicId, int oldStage, int newStage)
         {
-            if (animatronicId == null || !animatronicId.ToLower().Contains("snake")) return;
+            if (string.IsNullOrEmpty(animatronicId)) return;
+            string lower = animatronicId.ToLower();
+            if (!lower.Contains("sandy") && !lower.Contains("snake")) return;
 
             if (!AnimatronicManager.HasInstance) return;
-            var snake = AnimatronicManager.Instance.GetAnimatronic("snake");
-            if (snake == null) return;
+            var sandy = AnimatronicManager.Instance.GetAnimatronic("sandy") ?? AnimatronicManager.Instance.GetAnimatronic("snake");
+            if (sandy == null) return;
 
-            float progress = snake.MaxStage > 0 ? Mathf.Clamp01((float)newStage / snake.MaxStage) : 0f;
+            // GDD §4.4.2: Normal Sandy does NOT falsify or distort camera feeds!
+            if (!sandy.IsNightmare)
+            {
+                if (CameraMonitorSystem.HasInstance)
+                {
+                    CameraMonitorSystem.Instance.SetSnakeInterference(0f);
+                }
+                return;
+            }
 
-            // Shop Upgrade: Signal Filter reduces Snake interference by 50%
+            float progress = sandy.MaxStage > 0 ? Mathf.Clamp01((float)newStage / sandy.MaxStage) : 0f;
             float filterMult = (RunManager.HasInstance && RunManager.Instance.HasUpgrade("SIGNAL_FILTER")) ? 0.5f : 1.0f;
 
             float boost = progress * _maxStaticBoost * filterMult;
@@ -90,15 +101,16 @@ namespace Tylerland.Animatronics
             }
 
             if (!AnimatronicManager.HasInstance) return;
-            var snake = AnimatronicManager.Instance.GetAnimatronic("snake");
-            if (snake == null || snake.EffectiveAILevel <= 0 || snake.CurrentStage < 1) return;
+            var sandy = AnimatronicManager.Instance.GetAnimatronic("sandy") ?? AnimatronicManager.Instance.GetAnimatronic("snake");
+
+            // Only Nightmare Sandy fabricates false camera evidence (§4.4.4)
+            if (sandy == null || !sandy.IsNightmare || sandy.EffectiveAILevel <= 0 || sandy.CurrentStage < 1) return;
 
             _attemptTimer -= Time.deltaTime;
             if (_attemptTimer <= 0f)
             {
                 _attemptTimer = _spoofAttemptInterval;
-                // Chance scales with Snake stage and AI level
-                float chance = (snake.EffectiveAILevel / 20f) * 0.45f;
+                float chance = (sandy.EffectiveAILevel / 20f) * 0.50f;
                 if (Random.value < chance)
                 {
                     TriggerCameraSpoof();
@@ -109,9 +121,9 @@ namespace Tylerland.Animatronics
         public void TriggerCameraSpoof()
         {
             _isFeedCurrentlySpoofed = true;
-            _spoofedCameraIndex = CameraMonitorSystem.HasInstance ? CameraMonitorSystem.Instance.CurrentCameraIndex : 0;
+            _spoofedCameraIndex = 3; // CAM 04 (Sandy's Room)
             _spoofTimer = _spoofDuration;
-            Debug.Log($"[SnakeManipulator] Snake spoofed camera feed CAM index {_spoofedCameraIndex} for {_spoofDuration}s!");
+            Debug.Log($"[Sandy Decoy System] Nightmare Sandy left a shed decoy shell on CAM 04 for {_spoofDuration}s!");
         }
 
         public void ClearSpoof()

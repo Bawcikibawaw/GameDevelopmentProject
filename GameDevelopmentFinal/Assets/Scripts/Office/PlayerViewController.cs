@@ -153,6 +153,11 @@ namespace Tylerland.Office
             }
         }
 
+        public void LookInDirection(OfficeViewDirection direction)
+        {
+            TurnToDirection(direction);
+        }
+
         private void HandleEdgePanInput()
         {
             if (!_enableEdgePan || _isRotating) return;

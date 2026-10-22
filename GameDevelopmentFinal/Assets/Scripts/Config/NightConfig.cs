@@ -22,25 +22,25 @@ namespace Tylerland.Config
         [Range(1f, 10f)]
         public float nightIntroDuration = 3f;
 
-        [Header("Animatronic AI Levels (0 = Inactive, 20 = Max Aggression)")]
+        [Header("Animatronic AI Levels (0 = Passive/Inactive, 20 = Max Aggression)")]
         [Range(0, 20)]
-        [Tooltip("Center door threat. Baseline teacher in Night 1.")]
-        public int tylerAILevel = 2;
+        [Tooltip("Center Door (Tyler the Lion). Present passively Nights 1-3; attacks from Night 4!")]
+        public int tylerAILevel = 0;
 
         [Range(0, 20)]
-        [Tooltip("Left door threat. Dorsal-fin approach.")]
+        [Tooltip("Right Door (Orville the Orca). Active from Night 2.")]
         public int sharkAILevel = 0;
 
         [Range(0, 20)]
-        [Tooltip("Right door threat. Fast and aggressive.")]
+        [Tooltip("Left Door (Erle the Eagle). Active from Night 3.")]
         public int eagleAILevel = 0;
 
         [Range(0, 20)]
-        [Tooltip("Back door threat. Manipulates camera feeds.")]
-        public int snakeAILevel = 0;
+        [Tooltip("Rear Door (Sandy the Snake). Active from Night 1 (introductory threat).")]
+        public int snakeAILevel = 4;
 
         [Header("Boss Encounter")]
-        [Tooltip("Whether the special Boss animatronic is active on this night (Night 6).")]
+        [Tooltip("Whether the True Final Boss can appear on this night if all 4 Nightmares are active (GDD §4.1.2 & §4.7).")]
         public bool bossActive = false;
 
         [Header("Phone Call")]

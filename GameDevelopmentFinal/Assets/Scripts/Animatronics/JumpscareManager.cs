@@ -6,9 +6,9 @@ using Tylerland.Office;
 namespace Tylerland.Animatronics
 {
     /// <summary>
-    /// Section 5.4: Attack & Jumpscare Presentation System.
+    /// Section 5.4 & GDD Section 4: Attack & Jumpscare Presentation System.
     /// Forces down the security tablet, snaps the 3D camera toward the attacker's door,
-    /// shakes the camera, renders full-screen 2D hand-drawn jumpscare frames,
+    /// shakes the camera, renders full-screen 2D hand-drawn Normal or Nightmare jumpscare frames,
     /// and transitions into the Game Over / Run Reset flow.
     /// </summary>
     public class JumpscareManager : Singleton<JumpscareManager>
@@ -28,6 +28,8 @@ namespace Tylerland.Animatronics
         [SerializeField] private bool _showDeathScreen = false;
         [SerializeField] private string _killerId = "";
         [SerializeField] private string _killerDisplayName = "";
+        [SerializeField] private bool _wasKillerNightmare = false;
+        [SerializeField] private string _killFlavorDescription = "";
 
         private float _jumpscareElapsed = 0f;
         private Color _killerThemeColor = Color.red;
@@ -82,6 +84,7 @@ namespace Tylerland.Animatronics
             _killerDisplayName = string.IsNullOrEmpty(animatronicId) ? "UNKNOWN" : animatronicId.ToUpper();
             _killerThemeColor = new Color(0.9f, 0.15f, 0.15f);
             _activeJumpscareSprites = null;
+            _wasKillerNightmare = false;
 
             int targetDoor = 1;
             if (AnimatronicManager.HasInstance)
@@ -89,9 +92,12 @@ namespace Tylerland.Animatronics
                 var unit = AnimatronicManager.Instance.GetAnimatronic(animatronicId);
                 if (unit != null && unit.Config != null)
                 {
-                    _killerDisplayName = unit.Config.displayName.ToUpper();
+                    _wasKillerNightmare = unit.IsNightmare;
+                    _killerDisplayName = (_wasKillerNightmare ? "NIGHTMARE " : "") + unit.Config.displayName.ToUpper();
                     _killerThemeColor = unit.Config.themeColor;
-                    _activeJumpscareSprites = unit.Config.jumpscareFrames;
+                    _activeJumpscareSprites = (_wasKillerNightmare && unit.Config.nightmareJumpscareFrames != null && unit.Config.nightmareJumpscareFrames.Length > 0)
+                        ? unit.Config.nightmareJumpscareFrames
+                        : unit.Config.jumpscareFrames;
                     targetDoor = unit.TargetDoorIndex;
 
                     if (unit.Config.jumpscareScreamSound != null && _audioSource != null)
@@ -101,6 +107,8 @@ namespace Tylerland.Animatronics
                 }
             }
 
+            _killFlavorDescription = GetGddKillDescription(_killerId, _wasKillerNightmare);
+
             // Force monitor down and snap player view to the attacking door
             if (PlayerViewController.HasInstance)
             {
@@ -109,6 +117,36 @@ namespace Tylerland.Animatronics
             }
 
             StartCoroutine(JumpscareSequenceRoutine());
+        }
+
+        private string GetGddKillDescription(string id, bool nightmare)
+        {
+            string lower = string.IsNullOrEmpty(id) ? "" : id.ToLowerInvariant();
+            if (lower.Contains("tyler"))
+            {
+                return nightmare
+                    ? "Nightmare Tyler seized your head with both claws and crushed it!"
+                    : "Tyler delivered a single devastating punch straight through the doorway!";
+            }
+            if (lower.Contains("orville") || lower.Contains("shark"))
+            {
+                return nightmare
+                    ? "Nightmare Orville lunged forward and impaled you with the harpoon embedded in his body!"
+                    : "Orville lunged upward from below like a surfacing predator, dorsal fin first!";
+            }
+            if (lower.Contains("sandy") || lower.Contains("snake"))
+            {
+                return nightmare
+                    ? "Nightmare Sandy coiled around your torso and crushed you with constrictor force!"
+                    : "\"I'm gonna fix you!\" — Sandy struck you with a heavy, clumsy repair blow!";
+            }
+            if (lower.Contains("erle") || lower.Contains("eagle"))
+            {
+                return nightmare
+                    ? "Nightmare Erle's unnaturally lengthened beak snapped shut around your head!"
+                    : "\"Yeehaw!\" — Sheriff Erle lunged forward, knocking your chair onto the floor!";
+            }
+            return "The animatronics overwhelmed the security office!";
         }
 
         private IEnumerator JumpscareSequenceRoutine()
@@ -180,30 +218,41 @@ namespace Tylerland.Animatronics
             float boxH = sh * 0.85f * scaleZoom;
             Rect spriteRect = new Rect((sw - boxW) * 0.5f + shakeX, (sh - boxH) * 0.5f + shakeY, boxW, boxH);
 
-            // Draw 2D Hand-Drawn Jumpscare Sprite if assigned by artist
+            // Draw 2D Hand-Drawn Jumpscare Sprite if assigned by artist, or generated 2D Sprite
+            Sprite jumpscareSprite = null;
             if (_activeJumpscareSprites != null && _activeJumpscareSprites.Length > 0)
             {
                 int frameIdx = Mathf.FloorToInt(_jumpscareElapsed * _spriteAnimationFps) % _activeJumpscareSprites.Length;
-                Sprite s = _activeJumpscareSprites[frameIdx] != null ? _activeJumpscareSprites[frameIdx] : _activeJumpscareSprites[0];
-                if (s != null && s.texture != null)
-                {
-                    GUI.DrawTexture(spriteRect, s.texture, ScaleMode.ScaleToFit);
-                    return;
-                }
+                jumpscareSprite = _activeJumpscareSprites[frameIdx] != null ? _activeJumpscareSprites[frameIdx] : _activeJumpscareSprites[0];
             }
 
-            // Procedural Fallback Jumpscare Card (when artist PNGs are not assigned yet)
+            if (jumpscareSprite == null)
+            {
+                jumpscareSprite = Procedural2DSpriteFactory.GetOrCreateAnimatronic2DSprite(
+                    _killerId,
+                    _killerThemeColor,
+                    _wasKillerNightmare ? 1 : 0,
+                    1.35f
+                );
+            }
+
+            if (jumpscareSprite != null && jumpscareSprite.texture != null)
+            {
+                GUI.DrawTexture(spriteRect, jumpscareSprite.texture, ScaleMode.ScaleToFit);
+            }
+
             GUIStyle screamStyle = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 54,
+                fontSize = 32,
                 fontStyle = FontStyle.Bold,
-                alignment = TextAnchor.MiddleCenter
+                alignment = TextAnchor.LowerCenter,
+                richText = true
             };
             screamStyle.normal.textColor = _killerThemeColor;
 
             GUI.Label(
-                spriteRect,
-                $"<b>[ ◉ _ ◉ ]</b>\n{_killerDisplayName} JUMPSCARE!\n<size=18><color=#cccccc>(Assign 2D Jumpscare Frames in {_killerDisplayName}'s AnimatronicConfig)</color></size>",
+                new Rect(0, sh - 125, sw, 100),
+                $"<b>{_killerDisplayName}!</b>\n<size=18><color=#ffffff>{_killFlavorDescription}</color></size>",
                 screamStyle
             );
         }
@@ -214,8 +263,8 @@ namespace Tylerland.Animatronics
             GUI.DrawTexture(new Rect(0, 0, sw, sh), Texture2D.whiteTexture);
             GUI.color = Color.white;
 
-            int boxW = 480;
-            int boxH = 290;
+            int boxW = 520;
+            int boxH = 320;
             Rect rect = new Rect((sw - boxW) / 2f, (sh - boxH) / 2f, boxW, boxH);
             GUI.Box(rect, "");
 
@@ -233,14 +282,17 @@ namespace Tylerland.Animatronics
             GUILayout.Space(8);
             GUIStyle subStyle = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 15,
-                alignment = TextAnchor.MiddleCenter
+                fontSize = 14,
+                alignment = TextAnchor.MiddleCenter,
+                wordWrap = true
             };
             subStyle.normal.textColor = Color.white;
             GUILayout.Label($"Killed by: <b>{_killerDisplayName}</b>", subStyle);
-            GUILayout.Label("<color=#aaaaaa>Run progress wiped. Soul Coins & permanent unlocks retained.</color>", subStyle);
+            GUILayout.Label($"<i>{_killFlavorDescription}</i>", subStyle);
+            GUILayout.Space(4);
+            GUILayout.Label("<color=#aaaaaa>Nightmare states & run progress reset. Permanent weapons & Soul Coins retained!</color>", subStyle);
 
-            GUILayout.Space(28);
+            GUILayout.Space(22);
 
             GUI.backgroundColor = new Color(0.85f, 0.25f, 0.25f);
             if (GUILayout.Button("↻ START NEW RUN (NIGHT 1)", GUILayout.Height(46)))

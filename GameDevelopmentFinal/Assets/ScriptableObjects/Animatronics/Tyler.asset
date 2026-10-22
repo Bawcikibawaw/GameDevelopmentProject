@@ -13,24 +13,42 @@ MonoBehaviour:
   m_Name: Tyler
   m_EditorClassIdentifier: Assembly-CSharp::Tylerland.Config.AnimatronicConfig
   animatronicId: tyler
-  displayName: Tyler
-  themeColor: {r: 0.85, g: 0.35, b: 0.25, a: 1}
+  displayName: Tyler the Lion
+  formerRole: Lead singer / central mascot
+  themeColor: {r: 0.88, g: 0.22, b: 0.2, a: 1}
   targetDoorIndex: 1
-  cameraRouteIndices: 00000000010000000700000001000000
-  retreatStageIndex: 1
-  baseTickInterval: 4.9
-  lateNightAIRamp: 2
-  attackWindowSeconds: 4.5
-  cameraBehavior: 1
-  counterWeaponId: Shears
+  activeFromNight: 4
+  passiveObserverBeforeActiveNight: 1
+  normalStageCount: 4
+  nightmareStageCount: 4
+  cameraRouteIndices: 01000000010000000100000001000000
+  retreatStageIndex: 0
+  attackWindowSeconds: 7
+  nightmareAttackWindowSeconds: 6
+  extraDurabilityLossOnBlock: 15
+  energyDrainOnNormalBlock: 0
+  energyDrainOnNightmareBlock: 12
+  baseTickInterval: 3.5
+  lateNightAIRamp: 3
+  cameraBehavior: 4
+  counterWeaponId: Shotgun
   cameraStageSprites: []
+  nightmareCameraStageSprites:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  decoyShellSprite: {fileID: 0}
+  emptyRoomSprite: {fileID: 0}
   doorwaySpritesByDamage:
   - {fileID: 0}
   - {fileID: 0}
   - {fileID: 0}
   - {fileID: 0}
   jumpscareFrames: []
+  nightmareJumpscareFrames: []
   footstepSound: {fileID: 0}
   blindspotWarningSound: {fileID: 0}
   doorBlockedBangSound: {fileID: 0}
   jumpscareScreamSound: {fileID: 0}
+  nightmareJumpscareScreamSound: {fileID: 0}

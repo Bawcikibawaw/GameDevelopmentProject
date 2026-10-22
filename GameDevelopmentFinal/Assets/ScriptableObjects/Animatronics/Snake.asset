@@ -14,23 +14,41 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Tylerland.Config.AnimatronicConfig
   animatronicId: snake
   displayName: Snake
+  formerRole: Lead singer / central mascot
   themeColor: {r: 0.35, g: 0.85, b: 0.4, a: 1}
   targetDoorIndex: 3
-  cameraRouteIndices: 07000000080000000900000009000000
+  activeFromNight: 4
+  passiveObserverBeforeActiveNight: 1
+  normalStageCount: 4
+  nightmareStageCount: 4
+  cameraRouteIndices: 030000000300000003000000
   retreatStageIndex: 0
+  attackWindowSeconds: 4.2
+  nightmareAttackWindowSeconds: 10
+  extraDurabilityLossOnBlock: 5
+  energyDrainOnNormalBlock: 0
+  energyDrainOnNightmareBlock: 0
   baseTickInterval: 5.1
   lateNightAIRamp: 3
-  attackWindowSeconds: 4.2
   cameraBehavior: 3
   counterWeaponId: Prod
   cameraStageSprites: []
+  nightmareCameraStageSprites:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  decoyShellSprite: {fileID: 0}
+  emptyRoomSprite: {fileID: 0}
   doorwaySpritesByDamage:
   - {fileID: 0}
   - {fileID: 0}
   - {fileID: 0}
   - {fileID: 0}
   jumpscareFrames: []
+  nightmareJumpscareFrames: []
   footstepSound: {fileID: 0}
   blindspotWarningSound: {fileID: 0}
   doorBlockedBangSound: {fileID: 0}
   jumpscareScreamSound: {fileID: 0}
+  nightmareJumpscareScreamSound: {fileID: 0}

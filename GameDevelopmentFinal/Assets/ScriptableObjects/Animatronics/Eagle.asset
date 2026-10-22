@@ -14,23 +14,41 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Tylerland.Config.AnimatronicConfig
   animatronicId: eagle
   displayName: Eagle
+  formerRole: Lead singer / central mascot
   themeColor: {r: 0.95, g: 0.75, b: 0.2, a: 1}
   targetDoorIndex: 2
-  cameraRouteIndices: 0000000001000000080000000500000006000000
+  activeFromNight: 4
+  passiveObserverBeforeActiveNight: 1
+  normalStageCount: 4
+  nightmareStageCount: 4
+  cameraRouteIndices: 020000000200000002000000
   retreatStageIndex: 0
+  attackWindowSeconds: 3.5
+  nightmareAttackWindowSeconds: 10
+  extraDurabilityLossOnBlock: 5
+  energyDrainOnNormalBlock: 0
+  energyDrainOnNightmareBlock: 0
   baseTickInterval: 4.6
   lateNightAIRamp: 2
-  attackWindowSeconds: 3.5
   cameraBehavior: 0
   counterWeaponId: Net
   cameraStageSprites: []
+  nightmareCameraStageSprites:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  decoyShellSprite: {fileID: 0}
+  emptyRoomSprite: {fileID: 0}
   doorwaySpritesByDamage:
   - {fileID: 0}
   - {fileID: 0}
   - {fileID: 0}
   - {fileID: 0}
   jumpscareFrames: []
+  nightmareJumpscareFrames: []
   footstepSound: {fileID: 0}
   blindspotWarningSound: {fileID: 0}
   doorBlockedBangSound: {fileID: 0}
   jumpscareScreamSound: {fileID: 0}
+  nightmareJumpscareScreamSound: {fileID: 0}

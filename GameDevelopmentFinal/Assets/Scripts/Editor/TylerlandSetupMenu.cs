@@ -8,7 +8,7 @@ using Tylerland.Animatronics;
 namespace Tylerland.Editor
 {
     /// <summary>
-    /// Editor automation tool that sets up the project configs and scene hierarchy with 1 click.
+    /// Editor automation tool that sets up the project configs and 100% 2D Sprite scene hierarchy with 1 click.
     /// Accessible via top menu bar: 'Tylerland'
     /// </summary>
     public static class TylerlandSetupMenu
@@ -41,71 +41,233 @@ namespace Tylerland.Editor
                 Debug.Log($"[Tylerland Editor] Created EconomyConfig at {ecoPath}");
             }
 
-            // 2. Night Configs (From Roadmap Section 8.1 table)
-            int[] durations = { 60, 75, 90, 90, 90, 90 };
-            int[] tylerAI =   {  2,  4,  5,  7,  9, 10 };
-            int[] sharkAI =   {  0,  3,  5,  7,  9, 10 };
-            int[] eagleAI =   {  0,  0,  3,  6,  8, 10 };
-            int[] snakeAI =   {  0,  0,  0,  3,  7,  9 };
-            bool[] boss =     { false, false, false, false, false, true };
+            // 2. Night Configs (Matching GDD Section 4 Activation Schedule:
+            // Night 1 = Sandy active + Tyler passive observer;
+            // Night 2 = Orville joins;
+            // Night 3 = Erle joins;
+            // Night 4+ = Tyler attacks!)
+            int[] durations =  { 60, 75, 90, 90, 90, 90 };
+            int[] sandyAI =    {  3,  4,  5,  7,  8, 10 }; // Active from Night 1 (Rear Door)
+            int[] orvilleAI =  {  0,  3,  5,  7,  9, 10 }; // Active from Night 2 (Right Door)
+            int[] erleAI =     {  0,  0,  3,  6,  8, 10 }; // Active from Night 3 (Left Door)
+            int[] tylerAI =    {  0,  0,  0,  5,  8, 10 }; // Passive Nights 1-3, Attacks from Night 4 (Center Door)
+            bool[] boss =      { false, false, false, false, false, true };
 
             for (int i = 0; i < 6; i++)
             {
                 int nightNum = i + 1;
                 string nightPath = $"{CONFIG_FOLDER}/Nights/Night_{nightNum}.asset";
                 var nightConfig = AssetDatabase.LoadAssetAtPath<NightConfig>(nightPath);
-                if (nightConfig == null)
+                bool isNewNight = (nightConfig == null);
+                if (isNewNight)
                 {
                     nightConfig = ScriptableObject.CreateInstance<NightConfig>();
-                    nightConfig.nightNumber = nightNum;
-                    nightConfig.realSecondsPerGameHour = durations[i];
-                    nightConfig.tylerAILevel = tylerAI[i];
-                    nightConfig.sharkAILevel = sharkAI[i];
-                    nightConfig.eagleAILevel = eagleAI[i];
-                    nightConfig.snakeAILevel = snakeAI[i];
-                    nightConfig.bossActive = boss[i];
-                    nightConfig.muteAllowed = nightNum >= 2;
+                }
 
+                nightConfig.nightNumber = nightNum;
+                nightConfig.realSecondsPerGameHour = durations[i];
+                nightConfig.tylerAILevel = tylerAI[i];
+                nightConfig.sharkAILevel = orvilleAI[i]; // Orville the Orca (Right Door)
+                nightConfig.eagleAILevel = erleAI[i];    // Erle the Eagle (Left Door)
+                nightConfig.snakeAILevel = sandyAI[i];   // Sandy the Snake (Rear Door)
+                nightConfig.bossActive = boss[i];
+                nightConfig.muteAllowed = nightNum >= 2;
+
+                if (isNewNight)
+                {
                     AssetDatabase.CreateAsset(nightConfig, nightPath);
                     Debug.Log($"[Tylerland Editor] Created NightConfig at {nightPath}");
                 }
+                else
+                {
+                    EditorUtility.SetDirty(nightConfig);
+                }
             }
 
-            // 3. Animatronic Configs (§5.2 Cast Table)
-            CreateOrLoadAnimatronicAsset("tyler", "Tyler", new Color(0.85f, 0.35f, 0.25f), 1, new[] { 0, 1, 7, 1 }, 1, 4.9f, 2, 4.5f, CameraStallBehavior.StalledWhenWatchedOnCamera, "Shears");
-            CreateOrLoadAnimatronicAsset("shark", "Shark", new Color(0.25f, 0.65f, 0.90f), 0, new[] { 4, 4, 2, 3 }, 1, 4.2f, 2, 3.8f, CameraStallBehavior.StalledWhenWatchedOnCamera, "Harpoon");
-            CreateOrLoadAnimatronicAsset("eagle", "Eagle", new Color(0.95f, 0.75f, 0.20f), 2, new[] { 0, 1, 8, 5, 6 }, 0, 4.6f, 2, 3.5f, CameraStallBehavior.None, "Net");
-            CreateOrLoadAnimatronicAsset("snake", "Snake", new Color(0.35f, 0.85f, 0.40f), 3, new[] { 7, 8, 9, 9 }, 0, 5.1f, 3, 4.2f, CameraStallBehavior.ManipulatesCameraFeeds, "Prod");
-            CreateOrLoadAnimatronicAsset("boss", "The Amalgam (Boss)", new Color(0.80f, 0.15f, 0.85f), 1, new[] { 0, 1, 2, 5, 9 }, 1, 3.4f, 4, 3.2f, CameraStallBehavior.ManipulatesCameraFeeds, "Shears");
+            // 3. Animatronic Configs (GDD Section 4: 0=Erle Left, 1=Tyler Center, 2=Orville Right, 3=Sandy Rear)
+            CreateOrUpdateGddAnimatronicAssets();
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            EditorUtility.DisplayDialog("Tylerland Setup", "Default Config assets (Nights 1-6, Economy & 5 Animatronics) generated successfully in Assets/ScriptableObjects/!", "OK");
+            EditorUtility.DisplayDialog("Tylerland Setup", "Default GDD Section 4 Config assets (Nights 1-6, Economy & Tyler, Orville, Sandy, Erle + Boss) generated in Assets/ScriptableObjects/!", "OK");
+        }
+
+        private static void CreateOrUpdateGddAnimatronicAssets(
+            out AnimatronicConfig tylerCfg,
+            out AnimatronicConfig orvilleCfg,
+            out AnimatronicConfig erleCfg,
+            out AnimatronicConfig sandyCfg,
+            out AnimatronicConfig bossCfg)
+        {
+            // Tyler the Lion (Center Door 1 / CAM 02): 4 stages, 10s window, Shotgun, passive Nights 1-3, active Night 4
+            tylerCfg = CreateOrLoadAnimatronicAsset(
+                fileBase: "Tyler",
+                id: "tyler",
+                displayName: "Tyler the Lion",
+                formerRole: "Lead Singer / Central Mascot",
+                color: new Color(0.85f, 0.35f, 0.25f),
+                doorIdx: 1,
+                activeFromNight: 4,
+                passiveBeforeActive: true,
+                normalStages: 4,
+                nightmareStages: 4,
+                retreatStage: 0, // Resets to Stage 1 (0-indexed 0)
+                tickInterval: 4.9f,
+                lateRamp: 2,
+                normalWindow: 10.0f,
+                nightmareWindow: 10.0f,
+                energyDrainNormal: 0f,
+                energyDrainNightmare: 12f,
+                camBehavior: CameraStallBehavior.TylerDestroysCameraInNightmare,
+                weaponId: "Shotgun"
+            );
+
+            // Orville the Orca (Right Door 2 / CAM 03): 6 stages, 20s window, Harpoon, active Night 2, retreats to Stage 2 (index 1)
+            orvilleCfg = CreateOrLoadAnimatronicAsset(
+                fileBase: "Orville",
+                id: "orville",
+                displayName: "Orville the Orca",
+                formerRole: "Medical Attendant / The Corrupted Healer",
+                color: new Color(0.20f, 0.65f, 0.90f),
+                doorIdx: 2,
+                activeFromNight: 2,
+                passiveBeforeActive: false,
+                normalStages: 6,
+                nightmareStages: 6,
+                retreatStage: 1, // Retreats to Stage 2 (0-indexed 1) per GDD §4.3.2
+                tickInterval: 4.4f,
+                lateRamp: 2,
+                normalWindow: 20.0f,
+                nightmareWindow: 20.0f,
+                energyDrainNormal: 12f,
+                energyDrainNightmare: 18f,
+                camBehavior: CameraStallBehavior.OrvilleProbabilisticAndReversal,
+                weaponId: "Harpoon"
+            );
+
+            // Erle the Eagle (Left Door 0 / CAM 01): 5 stages, 15s Normal / 12s Nightmare window, Electric Gun, active Night 3
+            erleCfg = CreateOrLoadAnimatronicAsset(
+                fileBase: "Erle",
+                id: "erle",
+                displayName: "Erle the Eagle",
+                formerRole: "Sheriff / Security Mascot",
+                color: new Color(0.95f, 0.75f, 0.20f),
+                doorIdx: 0,
+                activeFromNight: 3,
+                passiveBeforeActive: false,
+                normalStages: 5,
+                nightmareStages: 5,
+                retreatStage: 0, // Resets to Stage 1 (0-indexed 0)
+                tickInterval: 4.6f,
+                lateRamp: 2,
+                normalWindow: 15.0f,
+                nightmareWindow: 12.0f,
+                energyDrainNormal: 0f,
+                energyDrainNightmare: 10f,
+                camBehavior: CameraStallBehavior.ErleScannerAndGoodBadCop,
+                weaponId: "Electric Gun"
+            );
+
+            // Sandy the Snake (Rear Door 3 / CAM 04): 4 stages Normal / 5 stages Nightmare, 20s Normal / 8s Nightmare window, Spiked Mace, active Night 1
+            sandyCfg = CreateOrLoadAnimatronicAsset(
+                fileBase: "Sandy",
+                id: "sandy",
+                displayName: "Sandy the Snake",
+                formerRole: "Maintenance / Repair Mascot",
+                color: new Color(0.35f, 0.85f, 0.40f),
+                doorIdx: 3,
+                activeFromNight: 1,
+                passiveBeforeActive: false,
+                normalStages: 4,
+                nightmareStages: 5,
+                retreatStage: 0, // Resets to Stage 1 (0-indexed 0)
+                tickInterval: 5.0f,
+                lateRamp: 2,
+                normalWindow: 20.0f,
+                nightmareWindow: 8.0f,
+                energyDrainNormal: 0f,
+                energyDrainNightmare: 22f,
+                camBehavior: CameraStallBehavior.SandyNightmareDecoys,
+                weaponId: "Spiked Mace"
+            );
+
+            // Boss (Night 6 / True Final Boss)
+            bossCfg = CreateOrLoadAnimatronicAsset(
+                fileBase: "Boss",
+                id: "boss",
+                displayName: "The Amalgam (True Final Boss)",
+                formerRole: "True Final Boss (Requires All 4 Nightmares)",
+                color: new Color(0.80f, 0.15f, 0.85f),
+                doorIdx: 1,
+                activeFromNight: 6,
+                passiveBeforeActive: false,
+                normalStages: 5,
+                nightmareStages: 5,
+                retreatStage: 0,
+                tickInterval: 3.5f,
+                lateRamp: 3,
+                normalWindow: 8.0f,
+                nightmareWindow: 8.0f,
+                energyDrainNormal: 15f,
+                energyDrainNightmare: 20f,
+                camBehavior: CameraStallBehavior.SandyNightmareDecoys,
+                weaponId: "Shotgun"
+            );
+        }
+
+        private static void CreateOrUpdateGddAnimatronicAssets()
+        {
+            CreateOrUpdateGddAnimatronicAssets(out _, out _, out _, out _, out _);
         }
 
         private static AnimatronicConfig CreateOrLoadAnimatronicAsset(
-            string id, string displayName, Color color, int doorIdx, int[] route,
-            int retreatStage, float tickInterval, int lateRamp, float attackWindow,
+            string fileBase, string id, string displayName, string formerRole, Color color,
+            int doorIdx, int activeFromNight, bool passiveBeforeActive,
+            int normalStages, int nightmareStages, int retreatStage,
+            float tickInterval, int lateRamp, float normalWindow, float nightmareWindow,
+            float energyDrainNormal, float energyDrainNightmare,
             CameraStallBehavior camBehavior, string weaponId)
         {
-            string path = $"{CONFIG_FOLDER}/Animatronics/{displayName.Split(' ')[0]}.asset";
+            string path = $"{CONFIG_FOLDER}/Animatronics/{fileBase}.asset";
             var cfg = AssetDatabase.LoadAssetAtPath<AnimatronicConfig>(path);
-            if (cfg == null)
+            bool isNew = (cfg == null);
+            if (isNew)
             {
                 cfg = ScriptableObject.CreateInstance<AnimatronicConfig>();
-                cfg.animatronicId = id;
-                cfg.displayName = displayName;
-                cfg.themeColor = color;
-                cfg.targetDoorIndex = doorIdx;
-                cfg.cameraRouteIndices = route;
-                cfg.retreatStageIndex = retreatStage;
-                cfg.baseTickInterval = tickInterval;
-                cfg.lateNightAIRamp = lateRamp;
-                cfg.attackWindowSeconds = attackWindow;
-                cfg.cameraBehavior = camBehavior;
-                cfg.counterWeaponId = weaponId;
+            }
+
+            cfg.animatronicId = id;
+            cfg.displayName = displayName;
+            cfg.formerRole = formerRole;
+            cfg.themeColor = color;
+            cfg.targetDoorIndex = doorIdx;
+            cfg.activeFromNight = activeFromNight;
+            cfg.passiveObserverBeforeActiveNight = passiveBeforeActive;
+            cfg.normalStageCount = normalStages;
+            cfg.nightmareStageCount = nightmareStages;
+
+            int maxLen = Mathf.Max(normalStages, nightmareStages);
+            cfg.cameraRouteIndices = new int[maxLen];
+            for (int i = 0; i < maxLen; i++) cfg.cameraRouteIndices[i] = doorIdx;
+
+            cfg.retreatStageIndex = retreatStage;
+            cfg.baseTickInterval = tickInterval;
+            cfg.lateNightAIRamp = lateRamp;
+            cfg.attackWindowSeconds = normalWindow;
+            cfg.nightmareAttackWindowSeconds = nightmareWindow;
+            cfg.energyDrainOnNormalBlock = energyDrainNormal;
+            cfg.energyDrainOnNightmareBlock = energyDrainNightmare;
+            cfg.cameraBehavior = camBehavior;
+            cfg.counterWeaponId = weaponId;
+
+            if (isNew)
+            {
                 AssetDatabase.CreateAsset(cfg, path);
                 Debug.Log($"[Tylerland Editor] Created AnimatronicConfig at {path}");
+            }
+            else
+            {
+                EditorUtility.SetDirty(cfg);
             }
             return cfg;
         }
@@ -127,7 +289,6 @@ namespace Tylerland.Editor
                 coreObj.AddComponent<TylerlandBootstrap>();
             }
 
-            // Wire all configs
             ConnectConfigsToGameObject(coreObj);
 
             Selection.activeGameObject = coreObj;
@@ -171,7 +332,7 @@ namespace Tylerland.Editor
             EditorUtility.SetDirty(coreObj);
         }
 
-        [MenuItem("Tylerland/4. Build Complete 3D Office Environment in Scene", false, 4)]
+        [MenuItem("Tylerland/4. Build Complete 2D Sprite Office Environment in Scene", false, 4)]
         public static void Build3DOfficeEnvironment()
         {
             // 1. Root
@@ -186,23 +347,9 @@ namespace Tylerland.Editor
             }
 
             var officeRoot = new GameObject("[OFFICE_ENVIRONMENT]");
-            Undo.RegisterCreatedObjectUndo(officeRoot, "Build Complete 3D Office");
+            Undo.RegisterCreatedObjectUndo(officeRoot, "Build Complete 2D Sprite Office");
 
-            // 2. Room Structure (Floor, Ceiling, Light)
-            var floor = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            floor.name = "Floor";
-            floor.transform.SetParent(officeRoot.transform, false);
-            floor.transform.localPosition = new Vector3(0, -0.1f, 0);
-            floor.transform.localRotation = Quaternion.identity;
-            floor.transform.localScale = new Vector3(10f, 0.2f, 10f);
-
-            var ceiling = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            ceiling.name = "Ceiling";
-            ceiling.transform.SetParent(officeRoot.transform, false);
-            ceiling.transform.localPosition = new Vector3(0, 3.5f, 0);
-            ceiling.transform.localRotation = Quaternion.identity;
-            ceiling.transform.localScale = new Vector3(10f, 0.2f, 10f);
-
+            // 2. Ambient Office Point Light (for spatial atmosphere)
             var lightObj = new GameObject("OfficeCeilingLight");
             lightObj.transform.SetParent(officeRoot.transform, false);
             lightObj.transform.localPosition = new Vector3(0, 3.0f, 0);
@@ -212,21 +359,7 @@ namespace Tylerland.Editor
             light.color = new Color(1f, 0.95f, 0.8f);
             light.intensity = 1.3f;
 
-            // 3. Desk & Monitor (3D Placeholder + 2D Sprite Layer)
-            var desk = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            desk.name = "SecurityDesk_3DPlaceholder";
-            desk.transform.SetParent(officeRoot.transform, false);
-            desk.transform.localPosition = new Vector3(0, 0.4f, 1.2f);
-            desk.transform.localRotation = Quaternion.identity;
-            desk.transform.localScale = new Vector3(2.6f, 0.8f, 1.0f);
-
-            var monitor = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            monitor.name = "DeskSecurityMonitor";
-            monitor.transform.SetParent(desk.transform, false);
-            monitor.transform.localPosition = new Vector3(0, 0.7f, 0);
-            monitor.transform.localRotation = Quaternion.identity;
-            monitor.transform.localScale = new Vector3(0.5f, 0.4f, 0.1f);
-
+            // 3. 100% 2D Sprite Desk, Floor & Ceiling Layers (Zero 3D Cubes!)
             var desk2DObj = new GameObject("SecurityDesk_2DSprite");
             desk2DObj.transform.SetParent(officeRoot.transform, false);
             desk2DObj.transform.localPosition = new Vector3(0, 0.65f, 1.15f);
@@ -248,18 +381,18 @@ namespace Tylerland.Editor
             var ceilingSR = ceiling2DObj.AddComponent<SpriteRenderer>();
             ceilingSR.sortingOrder = -10;
 
-            // 4. Doors (Left=Shark, Center=Tyler, Right=Eagle, Back=Snake)
+            // 4. 2D Sprite Doors (GDD Section 4: Left=Erle, Center=Tyler, Right=Orville, Rear=Sandy)
             var doorControllers = new Tylerland.Office.DoorController[4];
 
-            // Inward-facing door frames:
-            // Left (Shark): at X = -4.9, faces inward (+X) -> Y rotation = 90
-            doorControllers[0] = Create3DDoor(officeRoot.transform, 0, "Left Door (Shark)", new Vector3(-4.9f, 0, 0), Quaternion.Euler(0, 90f, 0));
-            // Center (Tyler): at Z = +4.9, faces inward (-Z) -> Y rotation = 180
-            doorControllers[1] = Create3DDoor(officeRoot.transform, 1, "Center Door (Tyler)", new Vector3(0, 0, 4.9f), Quaternion.Euler(0, 180f, 0));
-            // Right (Eagle): at X = +4.9, faces inward (-X) -> Y rotation = -90
-            doorControllers[2] = Create3DDoor(officeRoot.transform, 2, "Right Door (Eagle)", new Vector3(4.9f, 0, 0), Quaternion.Euler(0, -90f, 0));
-            // Back (Snake): at Z = -4.9, faces inward (+Z) -> Y rotation = 0
-            doorControllers[3] = Create3DDoor(officeRoot.transform, 3, "Back Door (Snake)", new Vector3(0, 0, -4.9f), Quaternion.Euler(0, 0f, 0));
+            // Inward-facing door pivots:
+            // Door 0 Left (Erle the Eagle): at X = -4.9, faces inward (+X) -> Y rotation = 90
+            doorControllers[0] = Create2DDoor(officeRoot.transform, 0, "Left Door (Erle the Eagle)", new Vector3(-4.9f, 0, 0), Quaternion.Euler(0, 90f, 0));
+            // Door 1 Center (Tyler the Lion): at Z = +4.9, faces inward (-Z) -> Y rotation = 180
+            doorControllers[1] = Create2DDoor(officeRoot.transform, 1, "Center Door (Tyler the Lion)", new Vector3(0, 0, 4.9f), Quaternion.Euler(0, 180f, 0));
+            // Door 2 Right (Orville the Orca): at X = +4.9, faces inward (-X) -> Y rotation = -90
+            doorControllers[2] = Create2DDoor(officeRoot.transform, 2, "Right Door (Orville the Orca)", new Vector3(4.9f, 0, 0), Quaternion.Euler(0, -90f, 0));
+            // Door 3 Rear (Sandy the Snake): at Z = -4.9, faces inward (+Z) -> Y rotation = 0
+            doorControllers[3] = Create2DDoor(officeRoot.transform, 3, "Rear Door (Sandy the Snake)", new Vector3(0, 0, -4.9f), Quaternion.Euler(0, 0f, 0));
 
             // 5. Office & Animatronic Systems Managers
             var officeMgrObj = new GameObject("[OFFICE_MANAGERS]");
@@ -267,6 +400,7 @@ namespace Tylerland.Editor
             var doorSys = officeMgrObj.AddComponent<Tylerland.Office.DoorSystemManager>();
             var attackRes = officeMgrObj.AddComponent<Tylerland.Office.AttackResolver>();
             var camSys = officeMgrObj.AddComponent<Tylerland.Office.CameraMonitorSystem>();
+            camSys.InitializeFourAnimatronicRooms();
             var phoneSys = officeMgrObj.AddComponent<Tylerland.Office.PhoneSystem>();
             var hud = officeMgrObj.AddComponent<Tylerland.Office.OfficeHUD>();
             var artMgr = officeMgrObj.AddComponent<Tylerland.Office.OfficeArtManager>();
@@ -277,7 +411,7 @@ namespace Tylerland.Editor
             officeMgrObj.AddComponent<SpecialWeaponSystem>();
             officeMgrObj.AddComponent<JumpscareManager>();
 
-            // Ensure default AnimatronicConfig assets exist and wire them into AnimatronicManager
+            // Ensure default GDD AnimatronicConfig assets exist and wire them into AnimatronicManager
             if (!AssetDatabase.IsValidFolder(CONFIG_FOLDER))
             {
                 AssetDatabase.CreateFolder("Assets", "ScriptableObjects");
@@ -287,27 +421,24 @@ namespace Tylerland.Editor
                 AssetDatabase.CreateFolder(CONFIG_FOLDER, "Animatronics");
             }
 
-            var tylerCfg = CreateOrLoadAnimatronicAsset("tyler", "Tyler", new Color(0.85f, 0.35f, 0.25f), 1, new[] { 0, 1, 7, 1 }, 1, 4.9f, 2, 4.5f, CameraStallBehavior.StalledWhenWatchedOnCamera, "Shears");
-            var sharkCfg = CreateOrLoadAnimatronicAsset("shark", "Shark", new Color(0.25f, 0.65f, 0.90f), 0, new[] { 4, 4, 2, 3 }, 1, 4.2f, 2, 3.8f, CameraStallBehavior.StalledWhenWatchedOnCamera, "Harpoon");
-            var eagleCfg = CreateOrLoadAnimatronicAsset("eagle", "Eagle", new Color(0.95f, 0.75f, 0.20f), 2, new[] { 0, 1, 8, 5, 6 }, 0, 4.6f, 2, 3.5f, CameraStallBehavior.None, "Net");
-            var snakeCfg = CreateOrLoadAnimatronicAsset("snake", "Snake", new Color(0.35f, 0.85f, 0.40f), 3, new[] { 7, 8, 9, 9 }, 0, 5.1f, 3, 4.2f, CameraStallBehavior.ManipulatesCameraFeeds, "Prod");
-            var bossCfg  = CreateOrLoadAnimatronicAsset("boss", "Boss", new Color(0.80f, 0.15f, 0.85f), 1, new[] { 0, 1, 2, 5, 9 }, 1, 3.4f, 4, 3.2f, CameraStallBehavior.ManipulatesCameraFeeds, "Shears");
+            CreateOrUpdateGddAnimatronicAssets(out var tylerCfg, out var orvilleCfg, out var erleCfg, out var sandyCfg, out var bossCfg);
 
             var animFlags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
             typeof(AnimatronicManager).GetField("_tylerConfig", animFlags)?.SetValue(animMgr, tylerCfg);
-            typeof(AnimatronicManager).GetField("_sharkConfig", animFlags)?.SetValue(animMgr, sharkCfg);
-            typeof(AnimatronicManager).GetField("_eagleConfig", animFlags)?.SetValue(animMgr, eagleCfg);
-            typeof(AnimatronicManager).GetField("_snakeConfig", animFlags)?.SetValue(animMgr, snakeCfg);
+            typeof(AnimatronicManager).GetField("_sharkConfig", animFlags)?.SetValue(animMgr, orvilleCfg);
+            typeof(AnimatronicManager).GetField("_eagleConfig", animFlags)?.SetValue(animMgr, erleCfg);
+            typeof(AnimatronicManager).GetField("_snakeConfig", animFlags)?.SetValue(animMgr, sandyCfg);
             typeof(AnimatronicManager).GetField("_bossConfig", animFlags)?.SetValue(animMgr, bossCfg);
 
-            // 6. Walls with Doorway Openings, Dark Corridor Tunnels & 2D Sprite Canvases
-            BuildOfficeWallsAndCorridors(officeRoot.transform, artMgr, deskSR, desk, floorSR, floor, ceilingSR, ceiling);
+            // 6. 100% 2D Sprite Walls, Corridors & Doorway Blindspots
+            Build2DOfficeSpriteLayers(officeRoot.transform, artMgr, deskSR, floorSR, ceilingSR);
+            artMgr.ApplyAllArt();
 
             // Wire doors into DoorSystemManager
             var doorsField = typeof(Tylerland.Office.DoorSystemManager).GetField("_doors", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             if (doorsField != null) doorsField.SetValue(doorSys, doorControllers);
 
-            // 7. Camera setup
+            // 7. Camera setup (3D camera rotation in a 100% 2D Sprite room)
             var mainCam = Camera.main;
             if (mainCam == null)
             {
@@ -328,61 +459,18 @@ namespace Tylerland.Editor
             UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene());
 
             Selection.activeGameObject = officeMgrObj;
-            EditorUtility.DisplayDialog("Tylerland Setup", "3D + 2D Hybrid Office & Animatronic Systems built successfully!\n\n- 4 Inward-Facing Doors + 2D Sprite Layers\n- OfficeArtManager ready for 100% 2D Hand-Drawn Walls, Corridors & Desk\n- All 5 Animatronics (Tyler, Shark, Eagle, Snake, Boss) + Counter-Weapons + Jumpscare System wired!\n\nSelect '[OFFICE_MANAGERS]' to customize sprites or configs anytime!", "Awesome!");
+            EditorUtility.DisplayDialog("Tylerland Setup", "100% 2D Sprite Office & GDD Section 4 Animatronic Systems built successfully!\n\n- CAM 01 Left: Erle the Eagle (Electric Gun)\n- CAM 02 Center: Tyler the Lion (Shotgun)\n- CAM 03 Right: Orville the Orca (Harpoon)\n- CAM 04 Rear: Sandy the Snake (Spiked Mace)\n\nPress PLAY to test!", "Awesome!");
         }
 
-        private static void BuildOfficeWallsAndCorridors(
+        private static void Build2DOfficeSpriteLayers(
             Transform parent,
             Tylerland.Office.OfficeArtManager artMgr,
-            SpriteRenderer deskSR, GameObject desk3D,
-            SpriteRenderer floorSR, GameObject floor3D,
-            SpriteRenderer ceilingSR, GameObject ceiling3D)
+            SpriteRenderer deskSR,
+            SpriteRenderer floorSR,
+            SpriteRenderer ceilingSR)
         {
-            var wallsRoot = new GameObject("OfficeWallsAndCorridors");
-            wallsRoot.transform.SetParent(parent, false);
-
-            // 3D Placeholder Wall Sections
-            // 0 = WEST WALL (X = -5.0, Left - Shark)
-            var westWalls = new GameObject[]
-            {
-                CreateWallSection(wallsRoot.transform, "Wall_West_Left", new Vector3(-5.0f, 1.75f, -3.05f), new Vector3(0.2f, 3.5f, 3.9f)),
-                CreateWallSection(wallsRoot.transform, "Wall_West_Right", new Vector3(-5.0f, 1.75f, 3.05f), new Vector3(0.2f, 3.5f, 3.9f)),
-                CreateWallSection(wallsRoot.transform, "Wall_West_Top", new Vector3(-5.0f, 3.25f, 0f), new Vector3(0.2f, 0.5f, 2.2f))
-            };
-
-            // 1 = NORTH WALL (Z = +5.0, Center - Tyler)
-            var northWalls = new GameObject[]
-            {
-                CreateWallSection(wallsRoot.transform, "Wall_North_Left", new Vector3(-3.05f, 1.75f, 5.0f), new Vector3(3.9f, 3.5f, 0.2f)),
-                CreateWallSection(wallsRoot.transform, "Wall_North_Right", new Vector3(3.05f, 1.75f, 5.0f), new Vector3(3.9f, 3.5f, 0.2f)),
-                CreateWallSection(wallsRoot.transform, "Wall_North_Top", new Vector3(0f, 3.25f, 5.0f), new Vector3(2.2f, 0.5f, 0.2f))
-            };
-
-            // 2 = EAST WALL (X = +5.0, Right - Eagle)
-            var eastWalls = new GameObject[]
-            {
-                CreateWallSection(wallsRoot.transform, "Wall_East_Left", new Vector3(5.0f, 1.75f, -3.05f), new Vector3(0.2f, 3.5f, 3.9f)),
-                CreateWallSection(wallsRoot.transform, "Wall_East_Right", new Vector3(5.0f, 1.75f, 3.05f), new Vector3(0.2f, 3.5f, 3.9f)),
-                CreateWallSection(wallsRoot.transform, "Wall_East_Top", new Vector3(5.0f, 3.25f, 0f), new Vector3(0.2f, 0.5f, 2.2f))
-            };
-
-            // 3 = SOUTH WALL (Z = -5.0, Back - Snake)
-            var southWalls = new GameObject[]
-            {
-                CreateWallSection(wallsRoot.transform, "Wall_South_Left", new Vector3(-3.05f, 1.75f, -5.0f), new Vector3(3.9f, 3.5f, 0.2f)),
-                CreateWallSection(wallsRoot.transform, "Wall_South_Right", new Vector3(3.05f, 1.75f, -5.0f), new Vector3(3.9f, 3.5f, 0.2f)),
-                CreateWallSection(wallsRoot.transform, "Wall_South_Top", new Vector3(0f, 3.25f, -5.0f), new Vector3(2.2f, 0.5f, 0.2f))
-            };
-
-            // 3D Placeholder Corridor Tunnels
-            var westTunnel = CreateCorridorTunnel(wallsRoot.transform, "Corridor_West_Shark", new Vector3(-8.0f, 1.75f, 0f), new Vector3(6.0f, 3.5f, 2.4f), true);
-            var northTunnel = CreateCorridorTunnel(wallsRoot.transform, "Corridor_North_Tyler", new Vector3(0f, 1.75f, 8.0f), new Vector3(2.4f, 3.5f, 6.0f), false);
-            var eastTunnel = CreateCorridorTunnel(wallsRoot.transform, "Corridor_East_Eagle", new Vector3(8.0f, 1.75f, 0f), new Vector3(6.0f, 3.5f, 2.4f), true);
-            var southTunnel = CreateCorridorTunnel(wallsRoot.transform, "Corridor_South_Snake", new Vector3(0f, 1.75f, -8.0f), new Vector3(2.4f, 3.5f, 6.0f), false);
-
-            // 2D Hand-Drawn Sprite Layers (Properly rotated to match camera view angle so art is never mirrored!)
             var sprites2DRoot = new GameObject("Office_2DSprite_Layers");
-            sprites2DRoot.transform.SetParent(wallsRoot.transform, false);
+            sprites2DRoot.transform.SetParent(parent, false);
 
             // Camera look rotations: Left = -90, Center = 0, Right = +90, Back = 180
             Quaternion[] viewRotations =
@@ -420,16 +508,14 @@ namespace Tylerland.Editor
                 new Vector3(0f, 1.75f, -5.85f)
             };
 
-            string[] dirLabels = { "Left_Shark", "Center_Tyler", "Right_Eagle", "Back_Snake" };
+            string[] dirLabels = { "Left_Erle", "Center_Tyler", "Right_Orville", "Rear_Sandy" };
             string[] slotTitles =
             {
-                "0. Left Wall & West Corridor (Shark)",
-                "1. Center Wall & North Corridor (Tyler)",
-                "2. Right Wall & East Corridor (Eagle)",
-                "3. Back Wall & South Vent Corridor (Snake)"
+                "0. Left Wall & Corridor (Erle the Eagle)",
+                "1. Center Wall & Corridor (Tyler the Lion)",
+                "2. Right Wall & Corridor (Orville the Orca)",
+                "3. Rear Wall & Corridor (Sandy the Snake)"
             };
-            GameObject[][] wall3DGroups = { westWalls, northWalls, eastWalls, southWalls };
-            GameObject[] corridor3DGroups = { westTunnel, northTunnel, eastTunnel, southTunnel };
 
             var slots = new Tylerland.Office.DirectionalWallArtSlot[4];
             for (int i = 0; i < 4; i++)
@@ -460,9 +546,7 @@ namespace Tylerland.Editor
                     directionName = slotTitles[i],
                     wallSpriteRenderer = wallSR,
                     corridorSpriteRenderer = corrSR,
-                    blindspotAnimatronicRenderer = animSR,
-                    placeholder3DWallObjects = wall3DGroups[i],
-                    placeholder3DCorridorObject = corridor3DGroups[i]
+                    blindspotAnimatronicRenderer = animSR
                 };
             }
 
@@ -471,106 +555,17 @@ namespace Tylerland.Editor
                 var flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
                 typeof(Tylerland.Office.OfficeArtManager).GetField("_wallSlots", flags)?.SetValue(artMgr, slots);
                 typeof(Tylerland.Office.OfficeArtManager).GetField("_deskSpriteRenderer", flags)?.SetValue(artMgr, deskSR);
-                typeof(Tylerland.Office.OfficeArtManager).GetField("_placeholder3DDesk", flags)?.SetValue(artMgr, desk3D);
                 typeof(Tylerland.Office.OfficeArtManager).GetField("_floorSpriteRenderer", flags)?.SetValue(artMgr, floorSR);
-                typeof(Tylerland.Office.OfficeArtManager).GetField("_placeholder3DFloor", flags)?.SetValue(artMgr, floor3D);
                 typeof(Tylerland.Office.OfficeArtManager).GetField("_ceilingSpriteRenderer", flags)?.SetValue(artMgr, ceilingSR);
-                typeof(Tylerland.Office.OfficeArtManager).GetField("_placeholder3DCeiling", flags)?.SetValue(artMgr, ceiling3D);
             }
         }
 
-        private static GameObject CreateWallSection(Transform parent, string name, Vector3 pos, Vector3 scale)
-        {
-            var wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            wall.name = name;
-            wall.transform.SetParent(parent, false);
-            wall.transform.localPosition = pos;
-            wall.transform.localRotation = Quaternion.identity;
-            wall.transform.localScale = scale;
-            return wall;
-        }
-
-        private static GameObject CreateCorridorTunnel(Transform parent, string name, Vector3 center, Vector3 size, bool runsEastWest)
-        {
-            var tunnel = new GameObject(name);
-            tunnel.transform.SetParent(parent, false);
-            tunnel.transform.localPosition = center;
-
-            // Tunnel Floor
-            var f = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            f.name = "Floor";
-            f.transform.SetParent(tunnel.transform, false);
-            f.transform.localPosition = new Vector3(0, -size.y / 2f, 0);
-            f.transform.localScale = new Vector3(size.x, 0.2f, size.z);
-
-            // Tunnel Ceiling
-            var c = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            c.name = "Ceiling";
-            c.transform.SetParent(tunnel.transform, false);
-            c.transform.localPosition = new Vector3(0, size.y / 2f, 0);
-            c.transform.localScale = new Vector3(size.x, 0.2f, size.z);
-
-            if (runsEastWest)
-            {
-                // Left & Right walls along Z
-                var w1 = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                w1.name = "Wall_North";
-                w1.transform.SetParent(tunnel.transform, false);
-                w1.transform.localPosition = new Vector3(0, 0, size.z / 2f);
-                w1.transform.localScale = new Vector3(size.x, size.y, 0.2f);
-
-                var w2 = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                w2.name = "Wall_South";
-                w2.transform.SetParent(tunnel.transform, false);
-                w2.transform.localPosition = new Vector3(0, 0, -size.z / 2f);
-                w2.transform.localScale = new Vector3(size.x, size.y, 0.2f);
-            }
-            else
-            {
-                // Left & Right walls along X
-                var w1 = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                w1.name = "Wall_West";
-                w1.transform.SetParent(tunnel.transform, false);
-                w1.transform.localPosition = new Vector3(-size.x / 2f, 0, 0);
-                w1.transform.localScale = new Vector3(0.2f, size.y, size.z);
-
-                var w2 = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                w2.name = "Wall_East";
-                w2.transform.SetParent(tunnel.transform, false);
-                w2.transform.localPosition = new Vector3(size.x / 2f, 0, 0);
-                w2.transform.localScale = new Vector3(0.2f, size.y, size.z);
-            }
-            return tunnel;
-        }
-
-        private static Tylerland.Office.DoorController Create3DDoor(Transform parent, int index, string doorName, Vector3 position, Quaternion rotation)
+        private static Tylerland.Office.DoorController Create2DDoor(Transform parent, int index, string doorName, Vector3 position, Quaternion rotation)
         {
             var doorFrameObj = new GameObject(doorName);
             doorFrameObj.transform.SetParent(parent, false);
             doorFrameObj.transform.position = position;
             doorFrameObj.transform.rotation = rotation;
-
-            // Frame pillars (Strictly local space, localRotation identity)
-            var leftPillar = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            leftPillar.name = "Frame_Left";
-            leftPillar.transform.SetParent(doorFrameObj.transform, false);
-            leftPillar.transform.localPosition = new Vector3(-1.1f, 1.5f, 0);
-            leftPillar.transform.localRotation = Quaternion.identity;
-            leftPillar.transform.localScale = new Vector3(0.2f, 3.0f, 0.4f);
-
-            var rightPillar = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            rightPillar.name = "Frame_Right";
-            rightPillar.transform.SetParent(doorFrameObj.transform, false);
-            rightPillar.transform.localPosition = new Vector3(1.1f, 1.5f, 0);
-            rightPillar.transform.localRotation = Quaternion.identity;
-            rightPillar.transform.localScale = new Vector3(0.2f, 3.0f, 0.4f);
-
-            var topPillar = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            topPillar.name = "Frame_Top";
-            topPillar.transform.SetParent(doorFrameObj.transform, false);
-            topPillar.transform.localPosition = new Vector3(0, 3.1f, 0);
-            topPillar.transform.localRotation = Quaternion.identity;
-            topPillar.transform.localScale = new Vector3(2.4f, 0.2f, 0.4f);
 
             // Moving Door Root Pivot (Scale 1,1,1 so child 2D Sprites are never distorted!)
             var doorMovingPivot = new GameObject("Door_MovingShutter_Pivot");
@@ -579,16 +574,7 @@ namespace Tylerland.Editor
             doorMovingPivot.transform.localRotation = Quaternion.identity;
             doorMovingPivot.transform.localScale = Vector3.one;
 
-            // 1. 3D Placeholder Box (Automatically hides when a 2D door sprite is assigned)
-            var door3DBox = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            door3DBox.name = "Door_3DPlaceholderBox";
-            door3DBox.transform.SetParent(doorMovingPivot.transform, false);
-            door3DBox.transform.localPosition = Vector3.zero;
-            door3DBox.transform.localRotation = Quaternion.identity;
-            door3DBox.transform.localScale = new Vector3(2.0f, 2.8f, 0.05f);
-            var placeholderMeshRenderer = door3DBox.GetComponent<MeshRenderer>();
-
-            // 2. Dedicated 2D Sprite Child (No MeshRenderer conflict, rotated 180Y so it faces camera without horizontal mirroring)
+            // Dedicated 2D Sprite Child (rotated 180Y so it faces camera without horizontal mirroring)
             var door2DSpriteObj = new GameObject("Door_2DSprite_Art");
             door2DSpriteObj.transform.SetParent(doorMovingPivot.transform, false);
             door2DSpriteObj.transform.localPosition = Vector3.zero;
@@ -596,6 +582,8 @@ namespace Tylerland.Editor
             door2DSpriteObj.transform.localScale = Vector3.one;
             var spriteRenderer = door2DSpriteObj.AddComponent<SpriteRenderer>();
             spriteRenderer.sortingOrder = 5;
+            spriteRenderer.sprite = Tylerland.Office.Procedural2DSpriteFactory.GetOrCreateDoorShutterSprite(index);
+            Tylerland.Office.OfficeArtManager.FitSpriteRendererToSize(spriteRenderer, new Vector2(2.0f, 2.8f));
 
             // Controller component
             var controller = doorFrameObj.AddComponent<Tylerland.Office.DoorController>();
@@ -605,7 +593,6 @@ namespace Tylerland.Editor
             typeof(Tylerland.Office.DoorController).GetField("_doorName", flags)?.SetValue(controller, doorName);
             typeof(Tylerland.Office.DoorController).GetField("_doorMeshTransform", flags)?.SetValue(controller, doorMovingPivot.transform);
             typeof(Tylerland.Office.DoorController).GetField("_doorSpriteRenderer", flags)?.SetValue(controller, spriteRenderer);
-            typeof(Tylerland.Office.DoorController).GetField("_placeholder3DSlabRenderer", flags)?.SetValue(controller, placeholderMeshRenderer);
             typeof(Tylerland.Office.DoorController).GetField("_openLocalPosition", flags)?.SetValue(controller, new Vector3(0, 4.5f, 0));
             typeof(Tylerland.Office.DoorController).GetField("_closedLocalPosition", flags)?.SetValue(controller, new Vector3(0, 1.4f, 0));
             typeof(Tylerland.Office.DoorController).GetField("_rechargeDuringNight", flags)?.SetValue(controller, false);

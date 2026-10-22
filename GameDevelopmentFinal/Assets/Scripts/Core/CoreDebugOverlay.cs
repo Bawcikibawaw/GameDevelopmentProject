@@ -72,8 +72,8 @@ namespace Tylerland.Core
             if (keyboard.jKey.wasPressedThisFrame)
             {
                 Debug.Log("[DEBUG CHEAT] 'J' pressed: Triggering jumpscare kill!");
-                GameEvents.TriggerJumpscare("Tyler");
-                GameEvents.TriggerPlayerDied("Tyler");
+                GameEvents.TriggerJumpscare("tyler");
+                GameEvents.TriggerPlayerDied("tyler");
             }
 
             // 'R': Force Run Reset
@@ -99,8 +99,8 @@ namespace Tylerland.Core
 
             // Semi-transparent debug box
             GUI.color = Color.white;
-            int boxWidth = 420;
-            int boxHeight = 390;
+            int boxWidth = 450;
+            int boxHeight = 415;
             Rect rect = new Rect(20, 20, boxWidth, boxHeight);
             GUI.Box(rect, "TYLERLAND DEBUG OVERLAY [Toggle: 'H' or 'O']");
 
@@ -124,28 +124,41 @@ namespace Tylerland.Core
             {
                 var run = RunManager.Instance;
                 int sc = MetaProgressionManager.HasInstance ? MetaProgressionManager.Instance.SoulCoins : 0;
-                GUILayout.Label($"<b>Night:</b> {run.CurrentNight}/{run.TotalNights} | <b>Money:</b> ${run.Money} | <b>Soul Coins:</b> {sc}");
+                bool allNm = run.State.AllFourNightmaresActive;
+                string nmTag = allNm ? "<color=#ff44aa>[ALL 4 NIGHTMARES ACTIVE!]</color>" : "";
+                GUILayout.Label($"<b>Night:</b> {run.CurrentNight}/{run.TotalNights} | <b>Money:</b> ${run.Money} | <b>Coins:</b> {sc} {nmTag}");
             }
 
-            // Live Animatronic Progression Table
+            // Live Animatronic Progression Table (GDD Section 4)
             if (AnimatronicManager.HasInstance && AnimatronicManager.Instance.Units != null)
             {
                 GUILayout.Space(4);
-                GUILayout.Label("<b><color=#ff9966>LIVE ANIMATRONICS (Stage / Room / AI / Dmg):</color></b>");
+                GUILayout.Label("<b><color=#ff9966>GDD ANIMATRONICS (Stage / Room / AI / Form):</color></b>");
                 foreach (var unit in AnimatronicManager.Instance.Units)
                 {
                     if (unit == null || unit.Config == null) continue;
-                    string statusColor = unit.IsAtDoorBlindspot ? "#ff4444" : (unit.EffectiveAILevel > 0 ? "#88ff88" : "#888888");
+                    string statusColor = unit.IsAtDoorBlindspot
+                        ? "#ff4444"
+                        : (unit.IsPassiveObserverOnly ? "#ffcc44" : (unit.EffectiveAILevel > 0 ? "#88ff88" : "#888888"));
+
                     string loc = unit.IsAtDoorBlindspot
                         ? $"DOOR {unit.TargetDoorIndex + 1} BLINDSPOT!"
-                        : $"CAM {unit.CurrentCameraRoomIndex + 1:00} (Stg {unit.CurrentStage}/{unit.MaxStage})";
+                        : (unit.IsPassiveObserverOnly
+                            ? $"CAM {unit.CurrentCameraRoomIndex + 1:00} (Passive Observer)"
+                            : $"CAM {unit.CurrentCameraRoomIndex + 1:00} (Stg {unit.CurrentStage + 1}/{unit.MaxStage})");
 
-                    GUILayout.Label($"<color={statusColor}>• <b>{unit.Config.displayName}:</b> {loc} | AI:{unit.EffectiveAILevel} | Dmg:{unit.DamageLevel}</color>");
+                    string formStr = unit.IsNightmare ? "<color=#ff3366>NIGHTMARE</color>" : "Normal";
+                    if (!string.IsNullOrEmpty(unit.AnimatronicId) && unit.AnimatronicId.ToLowerInvariant().Contains("erle") && unit.IsNightmare)
+                    {
+                        formStr += unit.IsBadCopMode ? " (BadCop)" : " (GoodCop)";
+                    }
+
+                    GUILayout.Label($"<color={statusColor}>• <b>{unit.Config.displayName}:</b> {loc} | AI:{unit.EffectiveAILevel} | {formStr}</color>");
                 }
             }
 
             GUILayout.Space(6);
-            GUILayout.Label("<color=cyan><b>Letter Cheats:</b>\n[T] Step Animatronics +1 Stage | [B] Summon to Faced Door\n[G] Grant All 4 Weapons       | [Q] Use Counter-Weapon\n[N] Win Night (6 AM)          | [J] Test Jumpscare\n[M] +$100  [C] +5 Coins        | [R] Reset  [P] Pause</color>");
+            GUILayout.Label("<color=cyan><b>Letter Cheats:</b>\n[T] Step Animatronics +1 Stage | [B] Summon to Faced Door\n[G] Unlock All 4 Weapons       | [Q] Fire Special Weapon\n[N] Win Night (6 AM)          | [J] Test Jumpscare\n[M] +$100  [C] +5 Coins        | [R] Reset  [P] Pause</color>");
 
             GUILayout.EndArea();
         }
