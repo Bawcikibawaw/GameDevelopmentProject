@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+  <title>Tylerland — 100% 2D Hand-Drawn Art Asset Roadmap</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #0c1221; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; touch-action: none; }
+
+    #canvas {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+      overflow: hidden;
+      cursor: grab;
+      touch-action: none;
+    }
+    #canvas.dragging { cursor: grabbing; }
+
+    #world {
+      position: absolute;
+      top: 0; left: 0;
+      transform-origin: 0 0;
+      touch-action: none;
+    }
+
+    .node {
+      position: absolute;
+      border-radius: 12px;
+      padding: 10px 14px;
+      width: 270px;
+      cursor: move;
+      user-select: none;
+      -webkit-user-select: none;
+      transition: box-shadow 0.15s ease, border-color 0.15s ease;
+      border: 2px solid transparent;
+      z-index: 2;
+      touch-action: none;
+    }
+    .node:hover {
+      box-shadow: 0 8px 26px rgba(0,0,0,0.4);
+      z-index: 10;
+    }
+    .node.selected {
+      border-color: #6366f1 !important;
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.4), 0 8px 24px rgba(0,0,0,0.4);
+      z-index: 15;
+    }
+    .node.connected-peer {
+      border-color: rgba(165,180,252,0.75) !important;
+      box-shadow: 0 0 0 2px rgba(99,102,241,0.25);
+    }
+    .node-title { font-weight: 800; font-size: 13px; line-height: 1.25; margin-bottom: 2px; font-family: 'Consolas', 'SF Mono', monospace; }
+    .node-section { font-size: 10px; opacity: 0.7; margin-bottom: 2px; font-weight: 700; letter-spacing: 0.3px; }
+    .node-desc { font-size: 10.5px; opacity: 0.85; line-height: 1.32; margin-bottom: 5px; }
+    .node-specs {
+      background: rgba(0,0,0,0.32);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 6px;
+      padding: 5px 7px;
+      font-family: 'Consolas', 'SF Mono', monospace;
+      font-size: 9.5px;
+      line-height: 1.35;
+      color: #f8fafc;
+      opacity: 0.95;
+      max-height: 80px;
+      overflow: hidden;
+    }
+    body.hide-specs .node-specs { display: none; }
+    .node-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 6px;
+    }
+    .node-tier {
+      display: inline-block; font-size: 9px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.6px;
+      padding: 2px 6px; border-radius: 4px;
+    }
+    .node-conn-count {
+      font-size: 9.5px;
+      opacity: 0.65;
+      font-weight: 600;
+    }
+
+    /* Category colors */
+    .cat-office { background: #1e3a5f; color: #bfdbfe; border-color: #2563eb; }
+    .cat-office .node-tier { background: #2563eb; color: #fff; }
+    .cat-cameras { background: #1e293b; color: #cbd5e1; border-color: #475569; }
+    .cat-cameras .node-tier { background: #475569; color: #fff; }
+    .cat-animatronic { background: #3b1a2e; color: #fda4af; border-color: #e11d48; }
+    .cat-animatronic .node-tier { background: #e11d48; color: #fff; }
+    .cat-jumpscares { background: #451a03; color: #fed7aa; border-color: #ea580c; }
+    .cat-jumpscares .node-tier { background: #ea580c; color: #fff; }
+    .cat-economy { background: #1a3326; color: #a7f3d0; border-color: #10b981; }
+    .cat-economy .node-tier { background: #10b981; color: #064e3b; }
+    .cat-ui { background: #2d1f47; color: #d8b4fe; border-color: #8b5cf6; }
+    .cat-ui .node-tier { background: #8b5cf6; color: #fff; }
+
+    /* SVG connections */
+    svg#connections {
+      position: absolute;
+      top: 0; left: 0;
+      overflow: visible;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* Fixed UI overlays */
+    #title-bar {
+      position: fixed; top: 12px; left: 12px;
+      background: rgba(15,23,42,0.94); backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;
+      padding: 10px 16px; z-index: 100; color: #e2e8f0;
+      max-width: calc(100vw - 24px);
+    }
+    #title-bar h1 { font-size: 15px; font-weight: 800; letter-spacing: -0.3px; }
+    #title-bar p  { font-size: 10.5px; opacity: 0.65; margin-top: 2px; }
+
+    #toolbar {
+      position: fixed; top: 12px; right: 12px;
+      display: flex; gap: 6px; z-index: 100;
+      flex-wrap: wrap; justify-content: flex-end;
+    }
+    .tool-btn {
+      background: rgba(15,23,42,0.92); backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.12); color: #e2e8f0;
+      padding: 6px 12px; border-radius: 8px; cursor: pointer;
+      font-size: 12px; font-weight: 600; transition: all 0.15s;
+      display: inline-flex; align-items: center; gap: 5px;
+      text-decoration: none;
+    }
+    .tool-btn:hover, .tool-btn:active { background: rgba(30,41,59,0.98); border-color: #6366f1; }
+    .tool-btn.highlight { background: #4338ca; color: #fff; border-color: #818cf8; }
+
+    #legend {
+      position: fixed; bottom: 12px; left: 12px;
+      background: rgba(15,23,42,0.92); backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;
+      padding: 10px 14px; z-index: 100; color: #e2e8f0;
+      max-width: 260px;
+    }
+    .legend-item { display: flex; align-items: center; gap: 8px; font-size: 11px; margin-bottom: 3px; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+
+    #minimap {
+      position: fixed; bottom: 12px; right: 12px;
+      width: 210px; height: 140px;
+      background: rgba(15,23,42,0.92); backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;
+      z-index: 100; overflow: hidden;
+    }
+    #minimap canvas { width: 100%; height: 100%; }
+
+    /* Inspector panel (Desktop right / Mobile bottom sheet) */
+    #inspector {
+      position: fixed; top: 68px; right: 12px;
+      width: 360px; max-height: calc(100vh - 160px);
+      background: rgba(15,23,42,0.96); backdrop-filter: blur(16px);
+      border: 1px solid rgba(99,102,241,0.5); border-radius: 12px;
+      padding: 14px; z-index: 110; color: #e2e8f0;
+      overflow-y: auto; display: none;
+      box-shadow: 0 16px 36px rgba(0,0,0,0.55);
+    }
+    #inspector.visible { display: block; }
+    #inspector h2 { font-family: 'Consolas', monospace; font-size: 14.5px; font-weight: 800; color: #a5b4fc; margin-bottom: 2px; }
+    #inspector .insp-sub { font-size: 10.5px; opacity: 0.65; margin-bottom: 8px; }
+    #inspector .insp-sec-title { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px; color: #94a3b8; margin: 8px 0 4px; }
+    #inspector .insp-box {
+      background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px; padding: 7px 9px; font-size: 11px; line-height: 1.4;
+    }
+    #inspector .insp-code {
+      font-family: 'Consolas', 'SF Mono', monospace; font-size: 10.5px; color: #e2e8f0;
+      white-space: pre-wrap;
+    }
+    .conn-pill {
+      display: inline-block; background: rgba(99,102,241,0.2); border: 1px solid rgba(99,102,241,0.45);
+      color: #c7d2fe; border-radius: 6px; padding: 2px 7px; font-size: 10px; margin: 2px 3px 2px 0;
+      cursor: pointer; font-family: 'Consolas', monospace;
+    }
+    .conn-pill:hover, .conn-pill:active { background: rgba(99,102,241,0.4); }
+
+    /* Modal for Phone QR Connection */
+    #phoneModal {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(8px);
+      z-index: 200; display: none; align-items: center; justify-content: center; padding: 16px;
+    }
+    #phoneModal.visible { display: flex; }
+    .modal-box {
+      background: #0f172a; border: 1px solid rgba(99,102,241,0.4); border-radius: 16px;
+      padding: 24px; max-width: 420px; width: 100%; color: #e2e8f0; text-align: center;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+    }
+
+    /* Mobile Dedicated Searchable List / Table View */
+    #listViewOverlay {
+      position: fixed; inset: 0; background: #0c1221; z-index: 90;
+      display: none; flex-direction: column; overflow: hidden; padding-top: 56px;
+    }
+    #listViewOverlay.visible { display: flex; }
+    .list-container {
+      flex: 1; overflow-y: auto; padding: 12px; touch-action: pan-y;
+      -webkit-overflow-scrolling: touch;
+    }
+    .list-card {
+      border-radius: 10px; padding: 12px; margin-bottom: 10px;
+      border: 1px solid transparent;
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+      #title-bar { top: 8px; left: 8px; right: 8px; padding: 8px 12px; border-radius: 10px; }
+      #title-bar h1 { font-size: 13px; }
+      #title-bar p { display: none; }
+      #toolbar {
+        top: auto; bottom: 8px; left: 8px; right: 8px;
+        justify-content: center; gap: 4px;
+        background: rgba(15,23,42,0.95); backdrop-filter: blur(12px);
+        padding: 6px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);
+      }
+      .tool-btn { padding: 6px 10px; font-size: 11px; flex: 1; justify-content: center; }
+      #minimap { display: none; }
+      #legend { display: none; }
+      #inspector {
+        top: auto; bottom: 62px; left: 8px; right: 8px;
+        width: auto; max-height: 60vh;
+        border-radius: 16px 16px 12px 12px;
+        padding: 16px;
+        box-shadow: 0 -10px 30px rgba(0,0,0,0.6);
+      }
+      .sheet-handle {
+        width: 36px; height: 4px; background: rgba(255,255,255,0.3);
+        border-radius: 2px; margin: 0 auto 12px auto;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Title Bar -->
+  <div id="title-bar">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div>
+        <h1>🎨 Tylerland — 100% 2D Hand-Drawn Art Asset Roadmap</h1>
+        <p>100 PPU · Transparent PNGs · Drag nodes · Scroll to zoom · Tap node to inspect artist specs</p>
+      </div>
+      <button class="tool-btn highlight" onclick="togglePhoneModal()" style="margin-left:8px;">
+        📱 Phone
+      </button>
+    </div>
+  </div>
+
+  <!-- Top / Bottom Toolbar -->
+  <div id="toolbar">
+    <a href="tylerland-scripts-roadmap.html" class="tool-btn highlight">🧩 30 Scripts Map</a>
+    <button class="tool-btn" id="viewModeBtn" onclick="toggleViewMode()">📋 List View</button>
+    <button class="tool-btn" onclick="fitAll()">⊡ Fit All</button>
+    <button class="tool-btn" onclick="resetView()">⊞ Reset</button>
+    <button class="tool-btn" id="toggleSpecsBtn" onclick="toggleSpecs()">⊟ Specs</button>
+    <button class="tool-btn" id="toggleConns" onclick="toggleConnections()">⊘ Lines</button>
+  </div>
+
+  <!-- Interactive Canvas -->
+  <div id="canvas">
+    <div id="world">
+      <svg id="connections" width="1" height="1"></svg>
+    </div>
+  </div>
+
+  <!-- Inspector Drawer / Bottom Sheet -->
+  <div id="inspector">
+    <div class="sheet-handle"></div>
+    <div style="display:flex;justify-content:space-between;align-items:start;">
+      <div>
+        <h2 id="insp-title">Asset Name</h2>
+        <div class="insp-sub" id="insp-meta">Roadmap Section · Category</div>
+      </div>
+      <button onclick="clearSelection()" style="background:rgba(255,255,255,0.1);border:none;color:#e2e8f0;cursor:pointer;width:28px;height:28px;border-radius:50%;font-size:14px;">✕</button>
+    </div>
+    <div class="insp-sec-title">Asset Description & Art Role</div>
+    <div class="insp-box" id="insp-desc"></div>
+    <div class="insp-sec-title">Technical Specifications & Dimensions</div>
+    <div class="insp-box insp-code" id="insp-specs"></div>
+    <div class="insp-sec-title">Artist Instructions & Critical Rules</div>
+    <div class="insp-box insp-code" id="insp-rules"></div>
+    <div class="insp-sec-title">Connected Systems & Assets (Tap to Focus)</div>
+    <div class="insp-box" id="insp-conns"></div>
+  </div>
+
+  <!-- Legend -->
+  <div id="legend">
+    <div style="font-weight:700;font-size:12px;margin-bottom:6px;">Art Categories (34 Nodes)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#2563eb;"></div> Office & Corridors (9)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#475569;"></div> Surveillance & Rooms (7)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#e11d48;"></div> Animatronics & Blindspots (5)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#ea580c;"></div> 2D Jumpscares & Weapons (6)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#10b981;"></div> Economy, Shops & Minigames (4)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#8b5cf6;"></div> UI, Lore & Core Screens (3)</div>
+  </div>
+
+  <!-- Minimap -->
+  <div id="minimap"><canvas id="minimapCanvas"></canvas></div>
+
+  <!-- Searchable List View Overlay -->
+  <div id="listViewOverlay">
+    <div style="padding: 10px 14px; background:#0f172a; border-bottom:1px solid rgba(255,255,255,0.1); display:flex; gap:8px; align-items:center;">
+      <input type="text" id="assetSearch" placeholder="🔍 Search 34 art assets, dimensions, rules..." 
+             oninput="renderListView()" 
+             style="flex:1; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); border-radius:8px; padding:8px 12px; color:#fff; font-size:13px; outline:none;">
+      <button class="tool-btn active" onclick="toggleViewMode()">📊 Graph</button>
+    </div>
+    <div class="list-container" id="listContent"></div>
+  </div>
+
+  <!-- Phone Modal -->
+  <div id="phoneModal" onclick="if(event.target===this) togglePhoneModal()">
+    <div class="modal-box">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 style="font-weight:800; font-size:16px; color:#a5b4fc;">📱 Open on Your Phone</h3>
+        <button onclick="togglePhoneModal()" style="color:#94a3b8; font-size:18px;">✕</button>
+      </div>
+      <p style="font-size:12px; color:#94a3b8; margin-bottom:16px;">
+        Connect your phone to the same Wi-Fi and scan this QR code with your camera:
+      </p>
+      <div style="background:#fff; padding:12px; border-radius:12px; display:inline-block; margin-bottom:14px;">
+        <img id="qrCodeImg" src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=http://192.168.1.30:8080/tylerland-art-roadmap.html" alt="QR Code" width="180" height="180" style="display:block;">
+      </div>
+      <div id="phoneUrlText" style="background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:10px; font-family:monospace; font-size:12px; color:#c7d2fe; word-break:break-all; margin-bottom:14px;">
+        http://192.168.1.30:8080/tylerland-art-roadmap.html
+      </div>
+      <p style="font-size:11px; color:#64748b;">
+        Full touch drag, pinch zoom & mobile list view enabled for artists!
+      </p>
+    </div>
+  </div>
+
+<script>
+// ─── DATA FOR ALL 34 ART ASSET NODES ─────────────────────────────────
+const nodes = [
+  // COL 1: Office Environment & Corridors (x: 80)
+  {
+    id: 'wall_center', cat: 'office', tier: 'Environment', sec: '§4.1',
+    title: 'Wall: Center (Tyler Side)',
+    desc: 'Main stage crimson wall facing Center. Contains central transparent doorway opening.',
+    specs: 'Canvas: 1920×700 px (10m×3.5m)\nPPU: 100 | Format: PNG 32-bit\nDoorway Cutout: ~400×560 px\nFile: spr_wall_center.png',
+    rules: 'Doorway in the middle must be 100% transparent alpha so the hallway & animatronic show through.\nRed pizzeria wallpaper with checkered baseboards.',
+    x: 80, y: 70
+  },
+  {
+    id: 'wall_left', cat: 'office', tier: 'Environment', sec: '§4.1',
+    title: 'Wall: Left (Erle Side)',
+    desc: 'Western security office wall facing Left (Sheriff Erle). Central transparent doorway.',
+    specs: 'Canvas: 1920×700 px (10m×3.5m)\nPPU: 100 | Format: PNG 32-bit\nDoorway Cutout: ~400×560 px\nFile: spr_wall_left.png',
+    rules: 'Gold/amber wood paneling, wanted posters, sheriff star logo.\nDoorway in center must be transparent alpha.',
+    x: 80, y: 280
+  },
+  {
+    id: 'wall_right', cat: 'office', tier: 'Environment', sec: '§4.1',
+    title: 'Wall: Right (Orville Side)',
+    desc: 'Medical veterinary aqua wall facing Right (Orville the Orca). Central doorway cutout.',
+    specs: 'Canvas: 1920×700 px (10m×3.5m)\nPPU: 100 | Format: PNG 32-bit\nDoorway Cutout: ~400×560 px\nFile: spr_wall_right.png',
+    rules: 'Stained cyan/blue ceramic hospital tiles, water damage stains.\nDoorway in center must be transparent alpha.',
+    x: 80, y: 490
+  },
+  {
+    id: 'wall_rear', cat: 'office', tier: 'Environment', sec: '§4.1',
+    title: 'Wall: Rear (Sandy Side)',
+    desc: 'Grungy maintenance utility wall facing Rear (Sandy the Snake). Central doorway cutout.',
+    specs: 'Canvas: 1920×700 px (10m×3.5m)\nPPU: 100 | Format: PNG 32-bit\nDoorway Cutout: ~400×560 px\nFile: spr_wall_rear.png',
+    rules: 'Rusted corrugated tin, junction boxes, warning hazard tape.\nDoorway in center must be transparent alpha.',
+    x: 80, y: 700
+  },
+  {
+    id: 'desk_computer', cat: 'office', tier: 'Interactive Prop', sec: '§4.1',
+    title: 'Security Desk & Computer',
+    desc: 'Fixed CRT Terminal sitting on table. MUST BE ON LOWER-RIGHT OF TYLER WALL!',
+    specs: 'Canvas: 600×380 px\nFormat: PNG 32-bit Alpha\nPosition: Lower-Right (X=1.75m)\nFile: spr_desk_computer.png',
+    rules: 'CRITICAL RULE: Must be positioned on the lower-right side of the Tyler wall view so that the center doorway (X=0) is 100% visible and unobstructed!\nPlayer clicks this screen to open cameras.',
+    x: 80, y: 910
+  },
+  {
+    id: 'wall_buttons', cat: 'office', tier: 'Interactive Prop', sec: '§4.1',
+    title: 'Near-Door Button Panels',
+    desc: 'Physical wall panels beside each door frame for point-and-click mouse controls.',
+    specs: 'Canvas: 160×240 px (per panel)\nDoor States: Open (Green) / Closed (Red) / Jammed\nLight States: Off (Gray) / On (Yellow)\nFile: spr_door_panel_buttons.png',
+    rules: 'Mounted beside every door frame for mouse control.\nBig industrial slam button for Door and toggle switch for Flashlight.',
+    x: 80, y: 1120
+  },
+  {
+    id: 'floor_ceiling', cat: 'office', tier: 'Environment', sec: '§4.1',
+    title: 'Office Floor & Ceiling',
+    desc: 'Seamless checkered linoleum floor tile and stained acoustic ceiling with fluorescent light.',
+    specs: 'Canvas: 1024×1024 px Seamless\nPPU: 12.8 (10m×10m)\nFile: spr_floor_tiles.png / spr_ceiling.png',
+    rules: 'Floor: Classic dirty black/white checkered pizzeria tiles.\nCeiling: Stained acoustic tiles, exposed conduit, hanging flickering tube.',
+    x: 80, y: 1330
+  },
+  {
+    id: 'door_shutters', cat: 'office', tier: 'Defense Shutter', sec: '§4.3',
+    title: '4 Heavy Door Shutters',
+    desc: 'Moving security roller shutters that slam down vertically to block animatronic attacks.',
+    specs: 'Canvas: 400×600 px (each)\nStates: Closed, Jammed/Broken, Sparks\nFormat: PNG 32-bit\nFile: spr_door_shutter_01..04.png',
+    rules: 'Corrugated steel shutter with hazard stripes at bottom.\nDented/jammed version with smoke and spark overlays for durability breaks.',
+    x: 80, y: 1540
+  },
+  {
+    id: 'corridors', cat: 'office', tier: 'Corridors', sec: '§4.3',
+    title: '4 Corridor Backdrops',
+    desc: '1-point perspective dark hallways behind door cutouts. Dark Unlit vs Flashlight Lit.',
+    specs: 'Canvas: 800×1200 px (each)\n2 Versions per door = 8 total\nDark (Silhouette) & Lit (Harsh Light)\nFile: spr_corridor_0..3_dark/lit.png',
+    rules: 'Sits right behind the transparent doorway cutouts.\nLit versions reveal detailed dirty walls and cast sharp shadows when animatronics are present.',
+    x: 80, y: 1750
+  },
+
+  // COL 2: Surveillance & Camera Rooms (x: 430)
+  {
+    id: 'cam_erle', cat: 'cameras', tier: 'Surveillance Feed', sec: '§4.2',
+    title: 'CAM 01: Sheriff Station (Erle)',
+    desc: 'Left room. Fixed position per phase (no creeping to lens). When damaged, form & location change!',
+    specs: 'Canvas: 1920×1080 px\nFixed Anchor Spots per Phase\nFile: spr_cam01_erle_stg0..3.png',
+    rules: 'RULE: NO ZOOMING TOWARDS CAMERA! Sprites remain in fixed anchor positions in every phase (e.g. Spot 1: desk perch, Spot 2: doorway arch, Empty: gone to door).\nWhen damaged, form changes AND location changes (relocates)!',
+    x: 430, y: 70
+  },
+  {
+    id: 'cam_tyler', cat: 'cameras', tier: 'Surveillance Feed', sec: '§4.2',
+    title: 'CAM 02: Main Stage (Tyler)',
+    desc: 'Center room. Fixed position per phase. Animatronics do NOT advance by getting closer to camera.',
+    specs: 'Canvas: 1920×1080 px\nFixed Anchor Spots per Phase\nFile: spr_cam02_tyler_stg0..3.png',
+    rules: 'RULE: NO ZOOMING TOWARDS CAMERA! Tyler is in fixed positions per phase (Spot 1: stage left, Spot 2: backstage door, Empty: gone).\nWhen damaged by shotgun, form transforms to Nightmare AND location relocates!',
+    x: 430, y: 280
+  },
+  {
+    id: 'cam_tyler_smashed', cat: 'cameras', tier: 'Broken Feed', sec: '§4.2',
+    title: 'CAM 02: Smashed Lens Feed',
+    desc: 'Nightmare Tyler destroys this camera when shot by the shotgun! Audio-only for rest of run.',
+    specs: 'Canvas: 1920×1080 px\nFormat: PNG 32-bit\nFile: spr_cam02_destroyed.png',
+    rules: 'Shattered spiderweb glass cracks, dangling wires, heavy distorted black static.\nPlayer must rely strictly on spatial audio roars & footsteps afterwards!',
+    x: 430, y: 490
+  },
+  {
+    id: 'cam_orville', cat: 'cameras', tier: 'Surveillance Feed', sec: '§4.2',
+    title: 'CAM 03: Medical Bay (Orville)',
+    desc: 'Right room. Fixed position in tank per phase. Watching CAM 03 advances location between fixed spots.',
+    specs: 'Canvas: 1920×1080 px\nFixed Anchor Spots per Phase\nFile: spr_cam03_orville_stg0..3.png',
+    rules: 'RULE: NO ZOOMING TOWARDS CAMERA! Orville stays in designated fixed tank spots (Spot 1: submerged center, Spot 2: pool deck, Empty: gone to right door).\nWhen damaged by harpoon, form changes to Nightmare AND location relocates!',
+    x: 430, y: 700
+  },
+  {
+    id: 'cam_sandy', cat: 'cameras', tier: 'Surveillance Feed', sec: '§4.2',
+    title: 'CAM 04: Ball Pit (Sandy)',
+    desc: 'Rear room. Fixed positions per phase (pipes, pit). When damaged, form & location change.',
+    specs: 'Canvas: 1920×1080 px\nFixed Anchor Spots per Phase\nFile: spr_cam04_sandy_stg0..4.png',
+    rules: 'RULE: NO ZOOMING TOWARDS CAMERA! Sandy occupies fixed spots (Spot 1: ceiling pipes, Spot 2: ball pit corner, Empty: gone).\nWhen damaged by mace, form changes to Nightmare AND location relocates!',
+    x: 430, y: 910
+  },
+  {
+    id: 'sandy_decoy', cat: 'cameras', tier: 'Deception Prop', sec: '§4.2',
+    title: 'Nightmare Sandy Shed Decoy',
+    desc: 'Empty hollow shed skin left in CAM 04 ball pit while real Nightmare Sandy stalks you!',
+    specs: 'Canvas: 600×500 px Alpha\nFormat: PNG 32-bit Transparent\nFile: spr_sandy_decoy_shell.png',
+    rules: 'Hollow, lifeless rubber husk coiled in ball pit.\nHollow dead eye sockets — tricks player into thinking Sandy is still in the room while she attacks your door!',
+    x: 430, y: 1120
+  },
+  {
+    id: 'crt_overlay', cat: 'cameras', tier: 'Overlay UI', sec: '§4.2',
+    title: 'CRT Tablet Overlays',
+    desc: 'Security tablet monitor overlay: scanlines, animated static noise sheet, and radar map.',
+    specs: 'Canvas: 1920×1080 px\nAnimated Static: 4-frame sprite sheet\nFile: spr_crt_scanlines.png / spr_static_sheet.png',
+    rules: 'Curved glass reflection vignette, horizontal phosphor scanlines, blinking red REC dot, 4-room tablet minimap radar.',
+    x: 430, y: 1330
+  },
+
+  // COL 3: Animatronics & Blindspots (x: 780)
+  {
+    id: 'tyler_blindspot', cat: 'animatronic', tier: 'Doorway Threat', sec: '§5.2',
+    title: 'Tyler: Doorway Blindspot',
+    desc: 'Fixed doorway position. When damaged, form changes to Nightmare AND location relocates!',
+    specs: 'Canvas: 700×1000 px (Fixed Anchor)\n5 Variations (Normal to Nightmare)\nPPU: 100 | File: spr_tyler_blindspot_0..4.png',
+    rules: 'Fixed anchor spot in doorway.\nWhen hit by Shotgun: Form changes (head casing shattered, red eyes) AND location immediately changes (relocates back to room Stage 0)!',
+    x: 780, y: 70
+  },
+  {
+    id: 'orville_blindspot', cat: 'animatronic', tier: 'Doorway Threat', sec: '§5.2',
+    title: 'Orville: Doorway Blindspot',
+    desc: 'Fixed doorway position. When damaged, form changes to Nightmare AND location relocates!',
+    specs: 'Canvas: 700×1000 px (Fixed Anchor)\n5 Variations\nPPU: 100 | File: spr_orville_blindspot_0..4.png',
+    rules: 'Fixed anchor spot outside Right door.\nWhen hit by Harpoon: Form changes (needle teeth, bioluminescent veins) AND location immediately changes (relocates back to pool Stage 0)!',
+    x: 780, y: 280
+  },
+  {
+    id: 'sandy_blindspot', cat: 'animatronic', tier: 'Doorway Threat', sec: '§5.3',
+    title: 'Sandy: Doorway Blindspot',
+    desc: 'Fixed doorway position. When damaged, form changes to Nightmare AND location relocates!',
+    specs: 'Canvas: 700×1000 px (Fixed Anchor)\n5 Variations\nPPU: 100 | File: spr_sandy_blindspot_0..4.png',
+    rules: 'Fixed anchor spot outside Rear door.\nWhen hit by Spiked Mace: Form changes (split cobra jaw, fangs) AND location immediately changes (relocates back to Stage 0)!',
+    x: 780, y: 490
+  },
+  {
+    id: 'erle_blindspot', cat: 'animatronic', tier: 'Doorway Threat', sec: '§5.2',
+    title: 'Erle: Doorway Blindspot',
+    desc: 'Fixed doorway position. When damaged, form changes to Nightmare AND location relocates!',
+    specs: 'Canvas: 700×1000 px (Fixed Anchor)\n6 Variations (Cop modes + Dmg)\nPPU: 100 | File: spr_erle_blindspot_0..5.png',
+    rules: 'Fixed anchor spot outside Left door.\nWhen hit by Electric Gun: Form changes (skeletal wings, razor talons) AND location immediately changes (relocates back to Stage 0)!',
+    x: 780, y: 700
+  },
+  {
+    id: 'boss_blindspot', cat: 'animatronic', tier: 'Final Boss', sec: '§5.7',
+    title: 'True Final Boss (Night 6)',
+    desc: 'Chimera Amalgamation of all 4 Nightmare animatronics. Multi-door stalker.',
+    specs: 'Canvas: 800×1100 px\n3 Combat Phase Sprites\nPPU: 100 | File: spr_boss_phase1..3.png',
+    rules: 'Eldritch fusion: Lion mane, Orca jaw, Eagle talons, and Snake coils entwined into one terrifying robotic monstrosity.\nAttacks all 4 doors unpredictably.',
+    x: 780, y: 910
+  },
+
+  // COL 4: 2D Jumpscares & Special Weapons (x: 1130)
+  {
+    id: 'jumpscare_tyler', cat: 'jumpscares', tier: 'Full-Screen Horror', sec: '§5.4',
+    title: 'Tyler 2D Jumpscare Sequence',
+    desc: 'Full-screen 6-8 frame animation of Tyler lunging into camera lens with snapping jaws.',
+    specs: 'Canvas: 1920×1080 px (each frame)\n6 – 8 Frames PNG Alpha\nFile: spr_jumpscare_tyler_01..08.png',
+    rules: 'Frame 1-2: Lunging out of dark doorway.\nFrame 3-5: Giant robotic lion face fills screen, jaw snaps open.\nFrame 6-8: Jaws clamp on camera, red static screen flash.',
+    x: 1130, y: 70
+  },
+  {
+    id: 'jumpscare_orville', cat: 'jumpscares', tier: 'Full-Screen Horror', sec: '§5.4',
+    title: 'Orville 2D Jumpscare Sequence',
+    desc: 'Full-screen 6-8 frame animation of massive orca jaw rising to swallow camera lens.',
+    specs: 'Canvas: 1920×1080 px (each frame)\n6 – 8 Frames PNG Alpha\nFile: spr_jumpscare_orville_01..08.png',
+    rules: 'Frame 1-3: Colossal dark silhouette rises from bottom screen with water spray.\nFrame 4-6: Triple-toothed jaw snaps shut around screen borders.',
+    x: 1130, y: 280
+  },
+  {
+    id: 'jumpscare_sandy', cat: 'jumpscares', tier: 'Full-Screen Horror', sec: '§5.4',
+    title: 'Sandy 2D Jumpscare Sequence',
+    desc: 'Full-screen 6-8 frame animation: lightning serpentine strike biting directly into viewer.',
+    specs: 'Canvas: 1920×1080 px (each frame)\n6 – 8 Frames PNG Alpha\nFile: spr_jumpscare_sandy_01..08.png',
+    rules: 'Frame 1-2: Cobra hood flares in background.\nFrame 3-5: Rapid strike blur directly into camera.\nFrame 6-8: Fangs embed in screen, green venom drips down.',
+    x: 1130, y: 490
+  },
+  {
+    id: 'jumpscare_erle', cat: 'jumpscares', tier: 'Full-Screen Horror', sec: '§5.4',
+    title: 'Erle 2D Jumpscare Sequence',
+    desc: 'Full-screen 6-8 frame animation: razor talons rake diagonally across the camera glass.',
+    specs: 'Canvas: 1920×1080 px (each frame)\n6 – 8 Frames PNG Alpha\nFile: spr_jumpscare_erle_01..08.png',
+    rules: 'Frame 1-2: Wings spread wide blocking entire corridor.\nFrame 3-5: Talons slash across screen causing diagonal glass crack overlays.\nFrame 6-8: Screeching beak bites down.',
+    x: 1130, y: 700
+  },
+  {
+    id: 'jumpscare_boss', cat: 'jumpscares', tier: 'Final Horror', sec: '§5.4',
+    title: 'Boss Amalgamation Jumpscare',
+    desc: 'Full-screen 8-10 frame animation of the Night 6 True Boss crushing the player into void.',
+    specs: 'Canvas: 1920×1080 px (each frame)\n8 – 10 Frames PNG Alpha\nFile: spr_jumpscare_boss_01..10.png',
+    rules: 'Horrific chaos: Orca jaws clamp from left, Eagle talons shred from right, Snake coils choke from above, Tyler skull roars into center.',
+    x: 1130, y: 910
+  },
+  {
+    id: 'weapons_art', cat: 'jumpscares', tier: 'Counter Arsenal', sec: '§5.5',
+    title: '4 Special Counter-Weapons',
+    desc: 'Shotgun, Stun Gun, Harpoon, and Spiked Mace. 512px icons + 800px in-hand firing sprites.',
+    specs: 'Icons: 512×512 px (4 total)\nIn-Hand Firing: 800×500 px (4 total)\nFile: spr_weapon_shotgun/gun/harpoon/mace.png',
+    rules: 'Shotgun: 12-gauge with orange muzzle blast (Tyler).\nElectric Gun: Taser prongs with blue lightning arcs (Erle).\nHarpoon: Steel cable spear launcher (Orville).\nSpiked Mace: Bloodstained iron flanges (Sandy).',
+    x: 1130, y: 1120
+  },
+
+  // COL 5: Economy, Shops & Minigames (x: 1480)
+  {
+    id: 'salary_art', cat: 'economy', tier: 'Run Economy', sec: '§6.1',
+    title: 'Night End Salary Clipboard',
+    desc: 'Stained shift breakdown clipboard, bloodstained banknotes, and red repair deduction stamp.',
+    specs: 'Canvas: 1920×1080 px\nClipboard + Paper + Dollar Bills + Stamp\nFile: spr_salary_clipboard.png',
+    rules: 'Grungy clipboard on wooden desk.\nPrinted paycheck with line items: Base Salary, Clean Night Bonus, Door Repair Deductions.\nRed rubber stamp: "REPAIRS DEDUCTED".',
+    x: 1480, y: 70
+  },
+  {
+    id: 'shop_art', cat: 'economy', tier: 'Roguelite Shop', sec: '§6.2',
+    title: 'Normal Shop UI & 12 Icons',
+    desc: 'Vending kiosk interface, sold-out stickers, price tags, and 12 upgrade item icons.',
+    specs: 'Screen: 1920×1080 px\n12 Icons: 256×256 px each\nFile: spr_shop_ui.png / spr_icon_*.png',
+    rules: 'Icons needed: Reinforced Door Shutter, Solar Battery, Motion Sensor, Heavy Spring, Coffee Thermos, Repair Wrench, Faster Hand-Crank, Camera Filter, etc.',
+    x: 1480, y: 280
+  },
+  {
+    id: 'soul_shop_art', cat: 'economy', tier: 'Meta Progression', sec: '§6.3',
+    title: 'Soul Shop & Soul Coins',
+    desc: 'Occult arcane altar interface, glowing purple/gold Soul Coin token, and cursed unlock icons.',
+    specs: 'Screen: 1920×1080 px\nSoul Coin Token: 256×256 px\nFile: spr_soul_shop_ui.png / spr_soul_coin.png',
+    rules: 'Dark mystical purple/black aesthetic.\nCarved Soul Coin with animal skull insignia.\nPermanent meta-progression unlock cards with ancient wax seals.',
+    x: 1480, y: 490
+  },
+  {
+    id: 'minigames_art', cat: 'economy', tier: 'Minigames', sec: '§6.4',
+    title: '3 Maintenance Minigames',
+    desc: 'Wire Splicing junction box, Pressure Boiler levers, and Memory sequencing animal keypad.',
+    specs: 'Canvas: 1024×768 px (each minigame)\nComponents: Cut Wires, Brass Levers, Buttons\nFile: spr_minigame_wires/levers/memory.png',
+    rules: 'Wires: 4 severed colored wires (Red, Blue, Yellow, Green) + electrical sparks.\nLevers: Industrial boiler panel with 3 brass lever switches and analog needles.\nMemory: 4 flashing animal face buttons.',
+    x: 1480, y: 700
+  },
+
+  // COL 6: UI, Atmosphere & Core Screens (x: 1830)
+  {
+    id: 'lore_posters', cat: 'ui', tier: 'Environmental Lore', sec: '§7.3',
+    title: 'Office Posters & Notes',
+    desc: 'Wall decor posters, OSHA safety signs, child crayon drawings, and bloodstained sticky notes.',
+    specs: 'Posters: 300×500 px (each, 4 total)\nSticky Notes: 200×200 px (each, 6 total)\nFile: spr_poster_tyler/safety/drawing.png',
+    rules: '1994 Tyler & Friends concert poster with fading colors.\nOSHA "Report All Animal Bites" sign.\nDisturbed child crayon drawing of animal mascots surrounding a frightened child.',
+    x: 1830, y: 70
+  },
+  {
+    id: 'hud_elements', cat: 'ui', tier: 'Diegetic HUD', sec: '§7.4',
+    title: 'Diegetic HUD Elements',
+    desc: 'Digital LED clock numbers, battery lightning gauge, door durability bars, warning arrows.',
+    specs: 'UI Spritesheet\nFormat: PNG 32-bit Transparent\nFile: spr_hud_gauges.png / spr_hud_arrows.png',
+    rules: 'LED 7-segment digital clock display (12 AM to 6 AM).\nBattery level cylinder with green/yellow/red segments.\nLarge pulsing directional threat arrows (Left, Up, Right, Down) with reaction countdown timer frames.',
+    x: 1830, y: 280
+  },
+  {
+    id: 'core_screens', cat: 'ui', tier: 'Core Flow', sec: '§3.1',
+    title: 'Core Run Flow Screens',
+    desc: 'Main Title Logo, 12 AM Night Intro, "YOU ARE DEAD" Newspaper, and 6 AM Victory Dawn.',
+    specs: 'Canvas: 1920×1080 px (each)\nTitle Logo: 1000×400 px Transparent\nFile: spr_menu_bg.png / spr_gameover.png',
+    rules: 'Main Menu: Distressed neon Tylerland logo over dark empty office.\n12 AM Splash: Grandfather clock chiming midnight.\nGame Over: Newspaper clipping: "Night Guard Missing After Shift".\n6 AM Victory: Morning golden dawn light breaking through office window with cheering bells.',
+    x: 1830, y: 490
+  }
+];
+
+// ─── BEZIER CONNECTIONS BETWEEN RELATED ASSETS ───────────────────────
+const connections = [
+  // Office Walls & Desk
+  ['wall_center','desk_computer','Desk placed lower-right'],
+  ['wall_center','wall_buttons','Door & Light buttons'],
+  ['wall_left','wall_buttons','Left Door panel'],
+  ['wall_right','wall_buttons','Right Door panel'],
+  ['wall_rear','wall_buttons','Rear Door panel'],
+  ['wall_center','door_shutters','Center Shutter in cutout'],
+  ['wall_left','door_shutters','Left Shutter in cutout'],
+  ['wall_right','door_shutters','Right Shutter in cutout'],
+  ['wall_rear','door_shutters','Rear Shutter in cutout'],
+  ['door_shutters','corridors','Corridor behind shutter'],
+  ['floor_ceiling','wall_center','Office room bounds'],
+
+  // Desk Computer & Surveillance Feeds
+  ['desk_computer','crt_overlay','Click screen to open feeds'],
+  ['crt_overlay','cam_tyler','Feeds: CAM 02 Show Stage'],
+  ['crt_overlay','cam_erle','Feeds: CAM 01 Sheriff Station'],
+  ['crt_overlay','cam_orville','Feeds: CAM 03 Medical Bay'],
+  ['crt_overlay','cam_sandy','Feeds: CAM 04 Ball Pit'],
+  ['cam_sandy','sandy_decoy','Decoy shell left in pit'],
+
+  // Camera Feeds to Doorway Blindspots
+  ['cam_tyler','tyler_blindspot','Leaves stage -> Center Door'],
+  ['cam_orville','orville_blindspot','Leaves tank -> Right Door'],
+  ['cam_sandy','sandy_blindspot','Leaves pit -> Rear Door'],
+  ['sandy_decoy','sandy_blindspot','Shell in pit tricks guard!'],
+  ['cam_erle','erle_blindspot','Leaves desk -> Left Door'],
+
+  // Corridors to Blindspots
+  ['corridors','tyler_blindspot','Silhouette in doorway'],
+  ['corridors','orville_blindspot','Silhouette in doorway'],
+  ['corridors','sandy_blindspot','Silhouette in doorway'],
+  ['corridors','erle_blindspot','Silhouette in doorway'],
+
+  // Blindspots to Jumpscares
+  ['tyler_blindspot','jumpscare_tyler','Timer reaches 0s -> Jumpscare'],
+  ['orville_blindspot','jumpscare_orville','Timer reaches 0s -> Jumpscare'],
+  ['sandy_blindspot','jumpscare_sandy','Timer reaches 0s -> Jumpscare'],
+  ['erle_blindspot','jumpscare_erle','Timer reaches 0s -> Jumpscare'],
+
+  // Boss
+  ['tyler_blindspot','boss_blindspot','Amalgamation constituent'],
+  ['orville_blindspot','boss_blindspot','Amalgamation constituent'],
+  ['sandy_blindspot','boss_blindspot','Amalgamation constituent'],
+  ['erle_blindspot','boss_blindspot','Amalgamation constituent'],
+  ['boss_blindspot','jumpscare_boss','Night 6 Chimera kill'],
+
+  // Weapons
+  ['tyler_blindspot','weapons_art','Shotgun fires at Tyler'],
+  ['weapons_art','cam_tyler_smashed','Shotgun triggers CAM 02 smash!'],
+  ['erle_blindspot','weapons_art','Stun Gun zaps Erle'],
+  ['orville_blindspot','weapons_art','Harpoon impales Orville'],
+  ['sandy_blindspot','weapons_art','Mace smashes Sandy'],
+
+  // Economy & Progression
+  ['jumpscare_tyler','core_screens','Triggers Game Over screen'],
+  ['core_screens','salary_art','6 AM Victory -> Salary check'],
+  ['salary_art','shop_art','Spend salary at Shop'],
+  ['salary_art','minigames_art','Maintenance between nights'],
+  ['minigames_art','soul_shop_art','Rewards Soul Coins'],
+  ['soul_shop_art','weapons_art','Unlocks permanent weapons'],
+
+  // UI & Lore
+  ['wall_buttons','hud_elements','Button states reflect HUD'],
+  ['lore_posters','wall_center','Posters mounted on walls'],
+  ['hud_elements','core_screens','Clocks and victory bells']
+];
+
+// ─── STATE ──────────────────────────────────────────────────────────
+const canvasEl = document.getElementById('canvas');
+const world    = document.getElementById('world');
+const svg      = document.getElementById('connections');
+
+let panX = 0, panY = 0, scale = 1;
+let isPanning = false, panStartX = 0, panStartY = 0;
+let selectedNode = null;
+let showConns = true;
+let showSpecs = true;
+let isListView = false;
+
+// ─── CREATE GRAPH NODES ─────────────────────────────────────────────
+const nodeEls = {};
+nodes.forEach(n => {
+  const connCount = connections.filter(([f, t]) => f === n.id || t === n.id).length;
+  const el = document.createElement('div');
+  el.className = `node cat-${n.cat}`;
+  el.id = `node-${n.id}`;
+  el.innerHTML = `
+    <div class="node-section">${n.sec} · ${n.tier}</div>
+    <div class="node-title">${n.title}</div>
+    <div class="node-desc">${n.desc}</div>
+    <div class="node-specs">${n.specs.replace(/\n/g, '<br>')}</div>
+    <div class="node-footer">
+      <span class="node-tier">${n.cat.toUpperCase()}</span>
+      <span class="node-conn-count">⇄ ${connCount} links</span>
+    </div>
+  `;
+  el.style.left = n.x + 'px';
+  el.style.top  = n.y + 'px';
+  world.appendChild(el);
+  nodeEls[n.id] = el;
+
+  // Mouse Drag
+  let dragging = false, dx = 0, dy = 0;
+  el.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    dragging = true;
+    dx = (e.clientX - panX) / scale - n.x;
+    dy = (e.clientY - panY) / scale - n.y;
+    el.style.zIndex = 50;
+    selectNode(n.id);
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    n.x = (e.clientX - panX) / scale - dx;
+    n.y = (e.clientY - panY) / scale - dy;
+    el.style.left = n.x + 'px';
+    el.style.top  = n.y + 'px';
+    drawConnections();
+    drawMinimap();
+  });
+  document.addEventListener('mouseup', () => {
+    if (dragging) { dragging = false; el.style.zIndex = selectedNode === n.id ? 15 : 2; }
+  });
+
+  // Touch Drag for Mobile
+  let touchStartPos = { x: 0, y: 0 };
+  let hasMovedNode = false;
+  el.addEventListener('touchstart', e => {
+    if (e.touches.length === 1) {
+      e.stopPropagation();
+      const t = e.touches[0];
+      touchStartPos = { x: t.clientX, y: t.clientY };
+      dx = (t.clientX - panX) / scale - n.x;
+      dy = (t.clientY - panY) / scale - n.y;
+      el.style.zIndex = 50;
+      hasMovedNode = false;
+    }
+  }, { passive: true });
+
+  el.addEventListener('touchmove', e => {
+    if (e.touches.length === 1) {
+      const t = e.touches[0];
+      const dist = Math.hypot(t.clientX - touchStartPos.x, t.clientY - touchStartPos.y);
+      if (dist > 4) {
+        hasMovedNode = true;
+        n.x = (t.clientX - panX) / scale - dx;
+        n.y = (t.clientY - panY) / scale - dy;
+        el.style.left = n.x + 'px';
+        el.style.top  = n.y + 'px';
+        drawConnections();
+        drawMinimap();
+      }
+    }
+  }, { passive: true });
+
+  el.addEventListener('touchend', () => {
+    el.style.zIndex = selectedNode === n.id ? 15 : 2;
+    if (!hasMovedNode) selectNode(n.id);
+  });
+});
+
+// ─── SELECTION & INSPECTOR ──────────────────────────────────────────
+function selectNode(id) {
+  selectedNode = id;
+  const peerIds = new Set();
+  connections.forEach(([f, t]) => {
+    if (f === id) peerIds.add(t);
+    if (t === id) peerIds.add(f);
+  });
+
+  nodes.forEach(n => {
+    const el = nodeEls[n.id];
+    el.classList.toggle('selected', n.id === id);
+    el.classList.toggle('connected-peer', peerIds.has(n.id));
+  });
+
+  updateInspector(id);
+  drawConnections();
+  drawMinimap();
+}
+
+function clearSelection() {
+  selectedNode = null;
+  nodes.forEach(n => {
+    const el = nodeEls[n.id];
+    el.classList.remove('selected', 'connected-peer');
+  });
+  document.getElementById('inspector').classList.remove('visible');
+  drawConnections();
+  drawMinimap();
+}
+
+function updateInspector(id) {
+  const n = nodes.find(x => x.id === id);
+  const insp = document.getElementById('inspector');
+  if (!n) { insp.classList.remove('visible'); return; }
+
+  document.getElementById('insp-title').textContent = n.title;
+  document.getElementById('insp-meta').textContent = `${n.sec} · ${n.tier} · ${n.cat.toUpperCase()}`;
+  document.getElementById('insp-desc').textContent = n.desc;
+  document.getElementById('insp-specs').textContent = n.specs;
+  document.getElementById('insp-rules').textContent = n.rules;
+
+  const related = connections.filter(([f, t]) => f === id || t === id);
+  const connsEl = document.getElementById('insp-conns');
+  connsEl.innerHTML = related.map(([f, t, lbl]) => {
+    const otherId = f === id ? t : f;
+    const dir = f === id ? '→' : '←';
+    const other = nodes.find(x => x.id === otherId);
+    const labelStr = lbl ? ` (${lbl})` : '';
+    return `<span class="conn-pill" onclick="focusNode('${otherId}')">${dir} ${other ? other.title : otherId}${labelStr}</span>`;
+  }).join('');
+
+  insp.classList.add('visible');
+}
+
+function focusNode(id) {
+  const n = nodes.find(x => x.id === id);
+  if (!n) return;
+  selectNode(id);
+  const vw = window.innerWidth, vh = window.innerHeight;
+  panX = vw / 2 - (n.x + 135) * scale;
+  panY = (vh < 768 ? vh * 0.35 : vh / 2) - (n.y + 80) * scale;
+  applyTransform();
+  drawConnections();
+}
+
+// ─── MOUSE PAN & WHEEL ZOOM ─────────────────────────────────────────
+canvasEl.addEventListener('mousedown', e => {
+  if (e.target === canvasEl || e.target === world || e.target === svg) {
+    isPanning = true;
+    panStartX = e.clientX - panX;
+    panStartY = e.clientY - panY;
+    canvasEl.classList.add('dragging');
+    if (selectedNode) clearSelection();
+  }
+});
+document.addEventListener('mousemove', e => {
+  if (!isPanning) return;
+  panX = e.clientX - panStartX;
+  panY = e.clientY - panStartY;
+  applyTransform();
+});
+document.addEventListener('mouseup', () => {
+  isPanning = false;
+  canvasEl.classList.remove('dragging');
+});
+
+canvasEl.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY > 0 ? 0.92 : 1.08;
+  const newScale = Math.max(0.15, Math.min(3.5, scale * factor));
+  panX = e.clientX - (e.clientX - panX) * (newScale / scale);
+  panY = e.clientY - (e.clientY - panY) * (newScale / scale);
+  scale = newScale;
+  applyTransform();
+}, { passive: false });
+
+// ─── TOUCH PAN & PINCH ZOOM ─────────────────────────────────────────
+let initialPinchDist = 0, initialPinchScale = 1;
+let touchPanStartX = 0, touchPanStartY = 0;
+let canvasTouchMoved = false;
+
+canvasEl.addEventListener('touchstart', e => {
+  if (e.target !== canvasEl && e.target !== world && e.target !== svg) return;
+  if (e.touches.length === 1) {
+    isPanning = true;
+    canvasTouchMoved = false;
+    touchPanStartX = e.touches[0].clientX - panX;
+    touchPanStartY = e.touches[0].clientY - panY;
+  } else if (e.touches.length === 2) {
+    isPanning = false;
+    const t1 = e.touches[0], t2 = e.touches[1];
+    initialPinchDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+    initialPinchScale = scale;
+  }
+}, { passive: true });
+
+canvasEl.addEventListener('touchmove', e => {
+  if (isPanning && e.touches.length === 1) {
+    canvasTouchMoved = true;
+    panX = e.touches[0].clientX - touchPanStartX;
+    panY = e.touches[0].clientY - touchPanStartY;
+    applyTransform();
+  } else if (e.touches.length === 2 && initialPinchDist > 0) {
+    const t1 = e.touches[0], t2 = e.touches[1];
+    const currentDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+    const midX = (t1.clientX + t2.clientX) / 2;
+    const midY = (t1.clientY + t2.clientY) / 2;
+    const factor = currentDist / initialPinchDist;
+    const newScale = Math.max(0.15, Math.min(3.5, initialPinchScale * factor));
+    panX = midX - (midX - panX) * (newScale / scale);
+    panY = midY - (midY - panY) * (newScale / scale);
+    scale = newScale;
+    applyTransform();
+  }
+}, { passive: true });
+
+canvasEl.addEventListener('touchend', e => {
+  if (e.touches.length === 0) {
+    isPanning = false;
+    initialPinchDist = 0;
+    if (!canvasTouchMoved && selectedNode) clearSelection();
+  } else if (e.touches.length === 1) {
+    isPanning = true;
+    touchPanStartX = e.touches[0].clientX - panX;
+    touchPanStartY = e.touches[0].clientY - panY;
+    initialPinchDist = 0;
+  }
+});
+
+// ─── TRANSFORM APPLIER ──────────────────────────────────────────────
+function applyTransform() {
+  world.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+  drawMinimap();
+}
+
+// ─── BEZIER CONNECTION LINES ────────────────────────────────────────
+function drawConnections() {
+  if (!showConns) { svg.innerHTML = ''; return; }
+
+  let html = '<defs>';
+  html += '<marker id="arr" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="rgba(148,163,184,0.45)"/></marker>';
+  html += '<marker id="arr-hl" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="rgba(99,102,241,0.95)"/></marker>';
+  html += '</defs>';
+
+  connections.forEach(([from, to, label]) => {
+    const hl = selectedNode && (from === selectedNode || to === selectedNode);
+    const opacity = selectedNode ? (hl ? 0.95 : 0.05) : 0.26;
+    const stroke  = hl ? '#6366f1' : '#94a3b8';
+    const sw      = hl ? 2.5 : 1.2;
+    const marker  = hl ? 'url(#arr-hl)' : 'url(#arr)';
+
+    const nf = nodes.find(n => n.id === from);
+    const nt = nodes.find(n => n.id === to);
+    if (!nf || !nt) return;
+    const ef = nodeEls[from], et = nodeEls[to];
+    const fw = ef.offsetWidth, fh = ef.offsetHeight;
+    const tw = et.offsetWidth, th = et.offsetHeight;
+
+    const fcx = nf.x + fw / 2, fcy = nf.y + fh / 2;
+    const tcx = nt.x + tw / 2, tcy = nt.y + th / 2;
+    const ang = Math.atan2(tcy - fcy, tcx - fcx);
+
+    let fx, fy;
+    if (Math.abs(Math.cos(ang)) * fh > Math.abs(Math.sin(ang)) * fw) {
+      fx = fcx + (Math.cos(ang) > 0 ? fw / 2 : -fw / 2);
+      fy = fcy + Math.tan(ang) * (Math.cos(ang) > 0 ? fw / 2 : -fw / 2);
+    } else {
+      fy = fcy + (Math.sin(ang) > 0 ? fh / 2 : -fh / 2);
+      fx = fcx + (1 / Math.tan(ang)) * (Math.sin(ang) > 0 ? fh / 2 : -fh / 2);
+    }
+
+    const rAng = ang + Math.PI;
+    let tx, ty;
+    if (Math.abs(Math.cos(rAng)) * th > Math.abs(Math.sin(rAng)) * tw) {
+      tx = tcx + (Math.cos(rAng) > 0 ? tw / 2 : -tw / 2);
+      ty = tcy + Math.tan(rAng) * (Math.cos(rAng) > 0 ? tw / 2 : -tw / 2);
+    } else {
+      ty = tcy + (Math.sin(rAng) > 0 ? th / 2 : -th / 2);
+      tx = tcx + (1 / Math.tan(rAng)) * (Math.sin(rAng) > 0 ? th / 2 : -th / 2);
+    }
+
+    const cp1x = fx + (tx - fx) * 0.4, cp1y = fy;
+    const cp2x = fx + (tx - fx) * 0.6, cp2y = ty;
+    html += `<path d="M${fx},${fy} C${cp1x},${cp1y} ${cp2x},${cp2y} ${tx},${ty}" fill="none" stroke="${stroke}" stroke-width="${sw}" opacity="${opacity}" marker-end="${marker}"/>`;
+
+    if (label && hl) {
+      const lx = (fx + tx) / 2, ly = (fy + ty) / 2 - 8;
+      html += `<text x="${lx}" y="${ly}" fill="#c7d2fe" font-size="10.5" font-weight="600" text-anchor="middle" font-family="Consolas, monospace" opacity="0.98">${label}</text>`;
+    }
+  });
+  svg.innerHTML = html;
+}
+
+// ─── MINIMAP ────────────────────────────────────────────────────────
+const mmCanvas = document.getElementById('minimapCanvas');
+const mctx = mmCanvas.getContext('2d');
+
+function drawMinimap() {
+  if (window.innerWidth <= 768) return;
+  const dpr = window.devicePixelRatio || 1;
+  mmCanvas.width  = 210 * dpr;
+  mmCanvas.height = 140 * dpr;
+  mctx.scale(dpr, dpr);
+  mctx.clearRect(0, 0, 210, 140);
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  nodes.forEach(n => {
+    minX = Math.min(minX, n.x);       minY = Math.min(minY, n.y);
+    maxX = Math.max(maxX, n.x + 270); maxY = Math.max(maxY, n.y + 190);
+  });
+  const pad = 40;
+  minX -= pad; minY -= pad; maxX += pad; maxY += pad;
+  const sw = maxX - minX, sh = maxY - minY;
+  const ms = Math.min(200 / sw, 130 / sh);
+  const ox = 5 + (200 - sw * ms) / 2;
+  const oy = 5 + (130 - sh * ms) / 2;
+  const catC = { office:'#2563eb', cameras:'#475569', animatronic:'#e11d48', jumpscares:'#ea580c', economy:'#10b981', ui:'#8b5cf6' };
+
+  connections.forEach(([from, to]) => {
+    const a = nodes.find(n => n.id === from), b = nodes.find(n => n.id === to);
+    if (!a || !b) return;
+    mctx.beginPath();
+    mctx.moveTo(ox + (a.x - minX + 135) * ms, oy + (a.y - minY + 80) * ms);
+    mctx.lineTo(ox + (b.x - minX + 135) * ms, oy + (b.y - minY + 80) * ms);
+    mctx.strokeStyle = 'rgba(148,163,184,0.14)'; mctx.lineWidth = 0.5; mctx.stroke();
+  });
+
+  nodes.forEach(n => {
+    mctx.fillStyle = catC[n.cat] || '#666';
+    mctx.globalAlpha = n.id === selectedNode ? 1 : 0.65;
+    mctx.fillRect(ox + (n.x - minX) * ms, oy + (n.y - minY) * ms, Math.max(8, 260 * ms), Math.max(4, 160 * ms));
+  });
+  mctx.globalAlpha = 1;
+
+  const vw = window.innerWidth, vh = window.innerHeight;
+  mctx.strokeStyle = 'rgba(99,102,241,0.8)'; mctx.lineWidth = 1.5;
+  mctx.strokeRect(
+    ox + (-panX / scale - minX) * ms,
+    oy + (-panY / scale - minY) * ms,
+    (vw / scale) * ms,
+    (vh / scale) * ms
+  );
+}
+
+// ─── TOOLBAR CONTROLS ───────────────────────────────────────────────
+function resetView() {
+  const isMobile = window.innerWidth <= 768;
+  scale = isMobile ? 0.42 : 0.78;
+  panX = isMobile ? 12 : 30;
+  panY = isMobile ? 65 : 60;
+  applyTransform();
+  drawConnections();
+}
+
+function fitAll() {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  nodes.forEach(n => {
+    const el = nodeEls[n.id];
+    minX = Math.min(minX, n.x);      minY = Math.min(minY, n.y);
+    maxX = Math.max(maxX, n.x + el.offsetWidth);
+    maxY = Math.max(maxY, n.y + el.offsetHeight);
+  });
+  const pad = window.innerWidth <= 768 ? 40 : 80;
+  const w = maxX - minX + pad * 2, h = maxY - minY + pad * 2;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  scale = Math.min(vw / w, vh / h, 1.2);
+  panX = (vw - w * scale) / 2 - minX * scale + pad * scale;
+  panY = (vh - h * scale) / 2 - minY * scale + pad * scale;
+  applyTransform();
+  drawConnections();
+}
+
+function toggleSpecs() {
+  showSpecs = !showSpecs;
+  document.body.classList.toggle('hide-specs', !showSpecs);
+  document.getElementById('toggleSpecsBtn').textContent = showSpecs ? '⊟ Specs' : '⊞ Specs';
+  drawConnections();
+  drawMinimap();
+}
+
+function toggleConnections() {
+  showConns = !showConns;
+  document.getElementById('toggleConns').textContent = showConns ? '⊘ Lines' : '⊘ Lines';
+  drawConnections();
+}
+
+function togglePhoneModal() {
+  const modal = document.getElementById('phoneModal');
+  modal.classList.toggle('visible');
+  if (modal.classList.contains('visible') && window.location.host && !window.location.host.startsWith('localhost') && !window.location.host.startsWith('127.0.0.1')) {
+    const fullUrl = window.location.href;
+    const txt = document.getElementById('phoneUrlText');
+    if (txt) txt.textContent = fullUrl;
+    const qr = document.getElementById('qrCodeImg');
+    if (qr) qr.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(fullUrl)}`;
+  }
+}
+
+// ─── SEARCHABLE LIST VIEW ───────────────────────────────────────────
+function toggleViewMode() {
+  isListView = !isListView;
+  const overlay = document.getElementById('listViewOverlay');
+  overlay.classList.toggle('visible', isListView);
+  document.getElementById('viewModeBtn').textContent = isListView ? '📊 Graph' : '📋 List View';
+  if (isListView) renderListView();
+}
+
+function renderListView() {
+  const filter = (document.getElementById('assetSearch').value || '').toLowerCase();
+  const container = document.getElementById('listContent');
+
+  const filtered = nodes.filter(n => {
+    return n.title.toLowerCase().includes(filter) ||
+           n.sec.toLowerCase().includes(filter) ||
+           n.desc.toLowerCase().includes(filter) ||
+           n.specs.toLowerCase().includes(filter) ||
+           n.rules.toLowerCase().includes(filter);
+  });
+
+  const catNames = {
+    office: 'Office & Corridors (9)',
+    cameras: 'Surveillance & Camera Rooms (7)',
+    animatronic: 'Animatronics & Blindspots (5)',
+    jumpscares: '2D Jumpscares & Weapons (6)',
+    economy: 'Economy, Shops & Minigames (4)',
+    ui: 'UI, Lore & Core Screens (3)'
+  };
+
+  let html = '';
+  const cats = ['office', 'cameras', 'animatronic', 'jumpscares', 'economy', 'ui'];
+
+  cats.forEach(c => {
+    const list = filtered.filter(n => n.cat === c);
+    if (list.length === 0) return;
+    html += `<div style="font-size:12px; font-weight:800; text-transform:uppercase; color:#94a3b8; letter-spacing:0.8px; margin: 12px 0 6px 4px;">${catNames[c]}</div>`;
+    list.forEach(n => {
+      const connCount = connections.filter(([f, t]) => f === n.id || t === n.id).length;
+      html += `
+        <div class="list-card cat-${n.cat}" onclick="selectFromList('${n.id}')">
+          <div style="display:flex; justify-content:space-between; align-items:start;">
+            <div>
+              <div style="font-size:10px; opacity:0.65; font-family:monospace;">${n.sec} · ${n.tier}</div>
+              <div style="font-size:14px; font-weight:800; font-family:monospace; color:#fff;">${n.title}</div>
+            </div>
+            <span class="node-tier">${n.cat.toUpperCase()}</span>
+          </div>
+          <div style="font-size:11.5px; opacity:0.85; margin: 6px 0;">${n.desc}</div>
+          <div class="node-specs" style="display:block; max-height:none; margin-bottom:6px;">
+            <div style="font-weight:700; opacity:0.7; margin-bottom:2px;">TECH SPECS:</div>
+            ${n.specs.replace(/\n/g, '<br>')}
+          </div>
+          <div style="font-size:10px; opacity:0.75; display:flex; justify-content:space-between;">
+            <span>⇄ ${connCount} Connections</span>
+            <span style="color:#a5b4fc; font-weight:600;">Tap to inspect & focus →</span>
+          </div>
+        </div>
+      `;
+    });
+  });
+
+  if (filtered.length === 0) {
+    html = `<div style="text-align:center; padding:30px; color:#64748b;">No assets match "${filter}"</div>`;
+  }
+  container.innerHTML = html;
+}
+
+function selectFromList(id) {
+  toggleViewMode();
+  focusNode(id);
+}
+
+// ─── INITIALIZATION ─────────────────────────────────────────────────
+function init() {
+  const isMobile = window.innerWidth <= 768;
+  scale = isMobile ? 0.42 : 0.78;
+  panX = isMobile ? 12 : 30;
+  panY = isMobile ? 65 : 60;
+  applyTransform();
+  drawConnections();
+}
+
+window.addEventListener('resize', () => {
+  drawConnections();
+  drawMinimap();
+});
+init();
+</script>
+</body>
+</html>

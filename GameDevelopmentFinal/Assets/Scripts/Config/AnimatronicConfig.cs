@@ -108,16 +108,19 @@ namespace Tylerland.Config
         public string counterWeaponId = "Shotgun";
 
         [Header("100% 2D Hand-Drawn Sprites (Normal & Nightmare)")]
-        [Tooltip("2D room sprites for each stage in Normal form (e.g. 4 stages for Tyler/Sandy, 6 for Orville, 5 for Erle)")]
+        [Tooltip("2D room sprites for each stage in Normal form (Each phase has a FIXED anchor position in the room; animatronics NEVER zoom or creep closer to the camera lens)")]
         public Sprite[] cameraStageSprites = new Sprite[4];
 
-        [Tooltip("2D room sprites for each stage in Nightmare / Damaged form")]
+        [Tooltip("2D room sprites for each stage in Nightmare / Damaged form (Fixed anchor positions per phase with damaged/nightmare form visual changes)")]
         public Sprite[] nightmareCameraStageSprites = new Sprite[4];
+
+        [Tooltip("Normalized (X: 0..1, Y: 0..1) fixed anchor positions inside the camera feed for each room phase (prevents fake camera zoom/scaling; animatronic stays at fixed spots)")]
+        public Vector2[] stageAnchorCoordinates = new Vector2[0];
 
         [Tooltip("2D sprite for Nightmare Sandy's shed decoy shell left behind in CAM 04")]
         public Sprite decoyShellSprite;
 
-        [Tooltip("2D sprite for this animatronic's room when EMPTY (when the animatronic is at your office door)")]
+        [Tooltip("2D sprite for this animatronic's room when EMPTY (when the animatronic has left for your office door)")]
         public Sprite emptyRoomSprite;
 
         [Tooltip("2D sprites when standing in the office doorway blindspot (illuminated by 'F' light): Index 0 = Normal form, Index 1+ = Nightmare / Damaged form")]
@@ -144,6 +147,75 @@ namespace Tylerland.Config
             if (doorwaySpritesByDamage == null || doorwaySpritesByDamage.Length == 0) return null;
             int idx = Mathf.Clamp(damageLevel, 0, doorwaySpritesByDamage.Length - 1);
             return doorwaySpritesByDamage[idx] != null ? doorwaySpritesByDamage[idx] : doorwaySpritesByDamage[0];
+        }
+
+        /// <summary>
+        /// Returns the normalized fixed anchor position (X: 0..1, Y: 0..1) inside the camera feed for this stage phase.
+        /// Animatronics remain at discrete fixed locations in every phase without zooming closer to the lens.
+        /// </summary>
+        public Vector2 GetStageAnchorCoordinate(int stageIndex, int totalStages)
+        {
+            if (stageAnchorCoordinates != null && stageIndex >= 0 && stageIndex < stageAnchorCoordinates.Length)
+            {
+                return stageAnchorCoordinates[stageIndex];
+            }
+            return GetDefaultStageAnchor(animatronicId, stageIndex, totalStages);
+        }
+
+        /// <summary>
+        /// Default fixed room anchor coordinates (X: 0..1, Y: 0..1) per character phase.
+        /// Enforces the rule that animatronics never scale towards the camera, but instead occupy discrete fixed anchor spots.
+        /// </summary>
+        public static Vector2 GetDefaultStageAnchor(string id, int stageIndex, int totalStages)
+        {
+            string cleanId = id != null ? id.ToLowerInvariant().Trim() : "";
+
+            switch (cleanId)
+            {
+                case "erle": // CAM 01 (Left / Sheriff)
+                    switch (stageIndex)
+                    {
+                        case 0: return new Vector2(0.24f, 0.38f); // Desk chair
+                        case 1: return new Vector2(0.52f, 0.42f); // Jail cell bars
+                        case 2: return new Vector2(0.76f, 0.36f); // Filing cabinet
+                        case 3: return new Vector2(0.38f, 0.32f); // Bulletin board
+                        default: return new Vector2(0.82f, 0.30f); // Exit threshold
+                    }
+
+                case "tyler": // CAM 02 (Center / Main Stage)
+                    switch (stageIndex)
+                    {
+                        case 0: return new Vector2(0.50f, 0.38f); // Center stage microphone stand
+                        case 1: return new Vector2(0.74f, 0.36f); // Stage right curtain / spotlight
+                        case 2: return new Vector2(0.26f, 0.36f); // Stage left drum kit
+                        default: return new Vector2(0.50f, 0.28f); // Main hall exit doorway arch
+                    }
+
+                case "orville": // CAM 03 (Right / Medical Bay)
+                    switch (stageIndex)
+                    {
+                        case 0: return new Vector2(0.28f, 0.40f); // Recovery tank / gurney
+                        case 1: return new Vector2(0.68f, 0.38f); // Medical monitors
+                        case 2: return new Vector2(0.48f, 0.34f); // Pool viewing window
+                        case 3: return new Vector2(0.18f, 0.32f); // Sanitization curtain
+                        case 4: return new Vector2(0.80f, 0.32f); // Supply cabinets
+                        default: return new Vector2(0.52f, 0.26f); // Corridor exit threshold
+                    }
+
+                case "sandy": // CAM 04 (Rear / Maintenance)
+                    switch (stageIndex)
+                    {
+                        case 0: return new Vector2(0.50f, 0.58f); // Coiled on overhead ceiling pipe
+                        case 1: return new Vector2(0.22f, 0.42f); // Hanging over electrical breaker
+                        case 2: return new Vector2(0.72f, 0.34f); // Slithering on floor tool chest
+                        case 3: return new Vector2(0.40f, 0.46f); // Entangled in ventilation duct
+                        default: return new Vector2(0.80f, 0.28f); // Maintenance tunnel exit
+                    }
+
+                default:
+                    float t = totalStages > 1 ? (float)stageIndex / (totalStages - 1) : 0.5f;
+                    return new Vector2(Mathf.Lerp(0.25f, 0.75f, t), 0.35f);
+            }
         }
     }
 }

@@ -51,6 +51,9 @@ namespace Tylerland.Office
 
             // 6. TOP CENTER: Subtitles (if phone call is active)
             DrawSubtitlesWidget(screenW);
+
+            // 7. NEAR-DOOR MOUSE CONTROLS (DOOR & LIGHT BUTTONS) & TYLER SIDE FIXED DESK COMPUTER
+            DrawDoorAndComputerMouseControls(screenW, screenH);
         }
 
         private void DrawClockWidget(int screenW)
@@ -386,7 +389,7 @@ namespace Tylerland.Office
             centerStyle.normal.textColor = Color.white;
 
             GUILayout.Label($"<b>Facing:</b> <color=cyan>{facing}</color> | <b>Monitor:</b> {monState}", centerStyle);
-            GUILayout.Label("<color=#aaaaaa>A/D: Turn | S: Rear | W: Center | Space: Tablet | E: Door | F: Light | Q: Weapon | B: Summon</color>", centerStyle);
+            GUILayout.Label("<color=#aaaaaa>A/D: Turn | S: Rear | W: Center | Click Computer (Tyler Wall) for Cameras | Click Door/Light Buttons</color>", centerStyle);
             GUILayout.EndArea();
         }
 
@@ -413,6 +416,114 @@ namespace Tylerland.Office
             subStyle.normal.textColor = Color.yellow;
             GUILayout.Label($"📞 \"{sub}\"", subStyle);
             GUILayout.EndArea();
+        }
+
+        /// <summary>
+        /// Adds mouse-clickable buttons near all 4 doors for Door and Flashlight control,
+        /// plus the fixed Computer Terminal on the table on the Tyler animatronic side (Center view).
+        /// The table/computer is placed on the lower-right side, keeping the doorway completely unobstructed!
+        /// </summary>
+        private void DrawDoorAndComputerMouseControls(int screenW, int screenH)
+        {
+            bool isMonitorOpen = PlayerViewController.HasInstance && PlayerViewController.Instance.IsMonitorOpen;
+
+            // If monitor IS open, draw a prominent LOWER MONITOR / EXIT COMPUTER button
+            if (isMonitorOpen)
+            {
+                int exitW = 380;
+                int exitH = 46;
+                Rect exitRect = new Rect((screenW - exitW) * 0.5f, screenH - exitH - 12, exitW, exitH);
+                GUI.backgroundColor = new Color(0.18f, 0.45f, 0.65f, 0.96f);
+                if (GUI.Button(exitRect, "<b>⬇ LOWER MONITOR (EXIT COMPUTER) ⬇</b>"))
+                {
+                    if (PlayerViewController.HasInstance)
+                    {
+                        PlayerViewController.Instance.SetMonitorState(false);
+                    }
+                }
+                GUI.backgroundColor = Color.white;
+                return;
+            }
+
+            int facingIdx = PlayerViewController.HasInstance ? (int)PlayerViewController.Instance.CurrentDirection : 1;
+            var door = DoorSystemManager.HasInstance ? DoorSystemManager.Instance.GetDoor(facingIdx) : null;
+
+            // 1. PHYSICAL WALL BUTTONS FOR MOUSE CONTROLS (Beside the door frame)
+            int panelW = 180;
+            int panelH = 145;
+            int panelX = screenW - panelW - 20;
+            int panelY = (int)(screenH * 0.28f);
+
+            Rect panelRect = new Rect(panelX, panelY, panelW, panelH);
+            GUI.color = new Color(0.12f, 0.15f, 0.20f, 0.94f);
+            GUI.Box(panelRect, $"<b>DOOR {facingIdx + 1} CONTROLS</b>");
+            GUI.color = Color.white;
+
+            bool isClosed = door != null && door.IsClosed;
+            bool isLightOn = door != null && door.IsLightOn;
+
+            // Door Button
+            string doorLabel = isClosed ? "🔴 DOOR: CLOSED\n[Click / 'E']" : "🟢 DOOR: OPEN\n[Click / 'E']";
+            if (door != null && door.IsBroken) doorLabel = "⚠ DOOR: BROKEN!";
+            else if (door != null && door.IsLockedOut) doorLabel = "⏳ DOOR: LOCKOUT!";
+
+            GUI.backgroundColor = isClosed ? new Color(0.9f, 0.25f, 0.25f) : new Color(0.25f, 0.85f, 0.35f);
+            if (GUI.Button(new Rect(panelX + 10, panelY + 24, panelW - 20, 50), doorLabel))
+            {
+                if (DoorSystemManager.HasInstance)
+                {
+                    DoorSystemManager.Instance.ToggleDoor(facingIdx);
+                }
+            }
+
+            // Flashlight Button
+            string lightLabel = isLightOn ? "💡 LIGHT: ON\n[Click / 'F']" : "🔦 LIGHT: OFF\n[Click / 'F']";
+            GUI.backgroundColor = isLightOn ? new Color(1.0f, 0.95f, 0.3f) : new Color(0.35f, 0.40f, 0.48f);
+            if (GUI.Button(new Rect(panelX + 10, panelY + 80, panelW - 20, 50), lightLabel))
+            {
+                if (DoorSystemManager.HasInstance)
+                {
+                    DoorSystemManager.Instance.ToggleDoorLight(facingIdx);
+                }
+            }
+            GUI.backgroundColor = Color.white;
+
+            // 2. FIXED COMPUTER ON TABLE (ON TYLER ANIMATRONIC SIDE - Center view)
+            // Placed at bottom-right of the Tyler wall, leaving the central doorway (X=0) 100% unobstructed!
+            if (facingIdx == (int)OfficeViewDirection.Center)
+            {
+                int compW = 345;
+                int compH = 118;
+                // Positioned on the lower right side above the bottom bar, doorway in center is untouched
+                int compX = screenW - compW - 20;
+                int compY = screenH - compH - 85;
+
+                Rect compRect = new Rect(compX, compY, compW, compH);
+                bool pulse = (Time.time % 1.0f) < 0.6f;
+                GUI.color = pulse ? new Color(0.04f, 0.24f, 0.16f, 0.96f) : new Color(0.03f, 0.16f, 0.11f, 0.96f);
+                GUI.Box(compRect, "");
+                GUI.color = Color.white;
+
+                GUIStyle compStyle = new GUIStyle(GUI.skin.label)
+                {
+                    fontSize = 12,
+                    alignment = TextAnchor.MiddleCenter,
+                    richText = true
+                };
+                compStyle.normal.textColor = Color.white;
+
+                string compText = "<b>🖥 SECURITY DESK COMPUTER (TYLER SIDE)</b>\n" +
+                                  "<color=#88ff88>Surveillance Terminal Connected</color>\n" +
+                                  "<b><color=#ffff55>▶ CLICK SCREEN TO OPEN CAMERAS ◀</color></b>";
+
+                if (GUI.Button(compRect, compText, compStyle))
+                {
+                    if (PlayerViewController.HasInstance)
+                    {
+                        PlayerViewController.Instance.SetMonitorState(true);
+                    }
+                }
+            }
         }
 
         private bool _autoPlayDemoActive = false;

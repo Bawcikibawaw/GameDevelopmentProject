@@ -384,37 +384,57 @@ namespace Tylerland.Office
                     GUI.color = Color.white;
                 }
 
-                // If Nightmare Sandy shed a decoy shell in CAM 04, draw the translucent shed shell first
+                // FIXED POSITION RULE: Animatronics do NOT scale or zoom closer to the camera lens.
+                // Each phase occupies a discrete FIXED anchor position (X, Y) inside the room frame.
+                // When damaged, both the form changes (crack overlay / glowing eyes) and the location changes (retreats to Stage 1 anchor).
+
+                // If Nightmare Sandy shed a decoy shell in CAM 04, draw the translucent shed shell at its fixed anchor spot
                 if (showSandyDecoy)
                 {
-                    float decoyProgress = sandyUnit.MaxStage > 1 ? (float)sandyUnit.DecoyShellStage / (sandyUnit.MaxStage - 1) : 0f;
-                    float decoyScale = Mathf.Lerp(0.40f, 0.85f, decoyProgress);
+                    Vector2 decoyAnchor = (sandyUnit.Config != null)
+                        ? sandyUnit.Config.GetStageAnchorCoordinate(sandyUnit.DecoyShellStage, sandyUnit.MaxStage)
+                        : AnimatronicConfig.GetDefaultStageAnchor("sandy", sandyUnit.DecoyShellStage, sandyUnit.MaxStage);
+
+                    float decoyH = screenRect.height * 0.58f;
+                    float decoyW = decoyH * (160f / 224f);
+                    float decoyX = screenRect.x + (screenRect.width - decoyW) * decoyAnchor.x;
+                    float decoyY = screenRect.y + screenRect.height - decoyH - (screenRect.height * (decoyAnchor.y - 0.35f));
+                    decoyY = Mathf.Clamp(decoyY, screenRect.y + 40f, screenRect.y + screenRect.height - decoyH - 10f);
+                    Rect decoyRect = new Rect(decoyX, decoyY, decoyW, decoyH);
+
                     Sprite decoySprite = Procedural2DSpriteFactory.GetOrCreateAnimatronic2DSprite("sandy", new Color(0.55f, 0.65f, 0.50f), 1, 1.0f);
                     if (decoySprite != null && decoySprite.texture != null)
                     {
-                        float spriteH = screenRect.height * decoyScale;
-                        float spriteW = spriteH * (160f / 224f);
-                        Rect decoyRect = new Rect(
-                            screenRect.x + (screenRect.width - spriteW) * 0.5f - 95f,
-                            screenRect.y + screenRect.height - spriteH - 20f,
-                            spriteW,
-                            spriteH
-                        );
                         GUI.color = new Color(0.70f, 0.85f, 0.70f, 0.55f); // Hollow shed skin tint
                         GUI.DrawTexture(decoyRect, decoySprite.texture, ScaleMode.ScaleToFit);
                         GUI.color = Color.white;
                     }
                 }
 
-                // Draw each present animatronic as a 2D Sprite scaled by its Stage (Stage 1 = Far -> Final Stage = Close to lens!)
+                // Draw each present animatronic at its fixed discrete anchor position for its current phase (no camera creeping/zooming)
                 if (occupants.Count > 0)
                 {
                     for (int i = 0; i < occupants.Count; i++)
                     {
                         var u = occupants[i];
-                        float stageProgress = u.MaxStage > 1 ? (float)u.CurrentStage / (u.MaxStage - 1) : 0f;
-                        float scale = Mathf.Lerp(0.38f, 0.90f, stageProgress);
 
+                        // Query fixed anchor coordinates from config (or default character anchor layout)
+                        Vector2 anchor = (u.Config != null)
+                            ? u.Config.GetStageAnchorCoordinate(u.CurrentStage, u.MaxStage)
+                            : AnimatronicConfig.GetDefaultStageAnchor(u.AnimatronicId, u.CurrentStage, u.MaxStage);
+
+                        // Uniform fixed scale across all phases (no zoom towards camera lens)
+                        float spriteH = screenRect.height * 0.58f;
+                        float spriteW = spriteH * (160f / 224f);
+
+                        // If multiple occupants share a room, offset them slightly
+                        float multiOffset = (occupants.Count > 1) ? (i - (occupants.Count - 1) * 0.5f) * 60f : 0f;
+                        float posX = screenRect.x + (screenRect.width - spriteW) * anchor.x + multiOffset;
+                        float posY = screenRect.y + screenRect.height - spriteH - (screenRect.height * (anchor.y - 0.35f));
+                        posY = Mathf.Clamp(posY, screenRect.y + 40f, screenRect.y + screenRect.height - spriteH - 10f);
+                        Rect charRect = new Rect(posX, posY, spriteW, spriteH);
+
+                        // Form changes automatically via DamageLevel (cracks, nightmare eyes, nightmare sprites)
                         Sprite charSprite = Procedural2DSpriteFactory.GetOrCreateAnimatronic2DSprite(
                             u.AnimatronicId,
                             u.Config != null ? u.Config.themeColor : Color.red,
@@ -424,15 +444,6 @@ namespace Tylerland.Office
 
                         if (charSprite != null && charSprite.texture != null)
                         {
-                            float spriteH = screenRect.height * scale;
-                            float spriteW = spriteH * (160f / 224f);
-                            float offsetX = (i - (occupants.Count - 1) * 0.5f) * 140f;
-                            Rect charRect = new Rect(
-                                screenRect.x + (screenRect.width - spriteW) * 0.5f + offsetX,
-                                screenRect.y + screenRect.height - spriteH - 20f,
-                                spriteW,
-                                spriteH
-                            );
                             GUI.DrawTexture(charRect, charSprite.texture, ScaleMode.ScaleToFit);
                         }
                     }

@@ -198,7 +198,9 @@ namespace Tylerland.Animatronics
 
         /// <summary>
         /// GDD §4.1.2 & §4.2.4: Called when hit by this character's counter-weapon at the doorway.
-        /// Interrupts the attack, triggers Nightmare transformation, and for Tyler prevents another attack that night.
+        /// Executes the dual reaction rule:
+        /// 1. Form Change: Increases DamageLevel, triggers Nightmare appearance / damaged sprites / crack overlays.
+        /// 2. Location Change: Immediately relocates away from the doorway back into its room retreat anchor stage!
         /// </summary>
         public void OnHitBySpecialWeapon()
         {
@@ -208,24 +210,25 @@ namespace Tylerland.Animatronics
             if (_config != null && _config.cameraBehavior == CameraStallBehavior.TylerDestroysCameraInNightmare)
             {
                 _preventAttacksRestOfNight = true;
-                _statusCallout = "NIGHTMARE TRIGGERED (Retreated for rest of tonight; CAM 02 Destroyed!)";
+                _statusCallout = "NIGHTMARE TRIGGERED (Damaged Form + Relocated back to room; CAM 02 Destroyed!)";
             }
             else if (_config != null && _config.cameraBehavior == CameraStallBehavior.ErleScannerAndGoodBadCop)
             {
                 _isBadCopMode = false;
-                _statusCallout = "NIGHTMARE: Good Cop ('Howdy, partner!')";
+                _statusCallout = "NIGHTMARE: Good Cop ('Howdy, partner!') - Relocated to Room Anchor 1";
             }
             else if (_config != null && _config.cameraBehavior == CameraStallBehavior.OrvilleProbabilisticAndReversal)
             {
                 _orvilleUnattendedTimer = 0f;
                 _orvilleRetreatedAt30s = false;
-                _statusCallout = "NIGHTMARE: Watching CAM 03 Advances Him!";
+                _statusCallout = "NIGHTMARE: Watching CAM 03 Advances Him! - Relocated to Room Anchor 1";
             }
             else if (_config != null && _config.cameraBehavior == CameraStallBehavior.SandyNightmareDecoys)
             {
-                _statusCallout = "NIGHTMARE: 5 Stages + Decoy Shells (8s Door Window)";
+                _statusCallout = "NIGHTMARE: 5 Stages + Decoy Shells (8s Door Window) - Relocated to Room Anchor 1";
             }
 
+            Debug.Log($"[Animatronic AI] 💥 {DisplayName} DAMAGED! (1) Form Change: Damage Level {_damageLevel} (Nightmare={_isNightmare}), (2) Location Change: Relocated from Door {TargetDoorIndex + 1} back to Stage 1.");
             ForceRetreatToStage(0);
         }
 
@@ -491,7 +494,7 @@ namespace Tylerland.Animatronics
             _currentStage = nextStage;
             PlayFootstepCue();
 
-            Debug.Log($"[Animatronic AI] {DisplayName} advanced in CAM {CurrentCameraRoomIndex + 1:00}: Stage {_currentStage + 1}/{MaxStage} [AI={_effectiveAILevel}/20]");
+            Debug.Log($"[Animatronic AI] {DisplayName} moved to Fixed Anchor Stage {_currentStage + 1}/{MaxStage} in CAM {CurrentCameraRoomIndex + 1:00} (AI={_effectiveAILevel}/20)");
             GameEvents.TriggerAnimatronicStageChanged(AnimatronicId, oldStage, _currentStage);
         }
 
@@ -574,7 +577,8 @@ namespace Tylerland.Animatronics
         }
 
         /// <summary>
-        /// Forces the animatronic back into its room at the specified 0-based stage index.
+        /// Relocates the animatronic back into its dedicated room at the specified fixed anchor stage index.
+        /// (Called upon door block or special weapon damage reaction: Form Change + Location Change).
         /// </summary>
         public void ForceRetreatToStage(int targetStage)
         {
@@ -585,6 +589,7 @@ namespace Tylerland.Animatronics
             ResetTickTimer();
             UpdateDoorway2DSprite();
 
+            Debug.Log($"[Animatronic AI] {DisplayName} relocated to Fixed Room Anchor Stage {_currentStage + 1}/{MaxStage} (Damage Level {_damageLevel}, Nightmare={_isNightmare}).");
             GameEvents.TriggerAnimatronicStageChanged(AnimatronicId, oldStage, _currentStage);
         }
 

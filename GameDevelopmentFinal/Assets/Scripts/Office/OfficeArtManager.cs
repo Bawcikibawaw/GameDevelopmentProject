@@ -397,9 +397,15 @@ namespace Tylerland.Office
                 }
             }
 
-            // 4. Desk 2D Sprite
+            // 4. Desk 2D Sprite (Positioned on the Tyler wall side, offset to the side so it does NOT block the central doorway!)
             if (_deskSpriteRenderer != null)
             {
+                // Ensure desk is offset on the Tyler side so it never obstructs the doorway at X = 0
+                if (Mathf.Abs(_deskSpriteRenderer.transform.localPosition.x) < 0.5f)
+                {
+                    _deskSpriteRenderer.transform.localPosition = new Vector3(1.75f, 0.45f, 2.30f);
+                }
+
                 Sprite activeDesk = _deskSprite != null
                     ? _deskSprite
                     : Procedural2DSpriteFactory.GetOrCreateDeskSprite();

@@ -49,6 +49,9 @@ namespace Tylerland.Office
         [Header("Monitor State")]
         [SerializeField] private bool _isMonitorOpen = false;
 
+        [Tooltip("Direct keyboard hotkey (Space) disabled by default. Player must interact with the fixed computer on the Tyler desk!")]
+        [SerializeField] private bool _allowDirectKeyboardMonitorToggle = false;
+
         private bool _isRotating = false;
         private Coroutine _rotationRoutine;
         private float _bufferedTurnInput = 0f;
@@ -104,7 +107,21 @@ namespace Tylerland.Office
         private void HandleMonitorInput()
         {
             var keyboard = Keyboard.current;
-            if (keyboard != null && keyboard.spaceKey.wasPressedThisFrame)
+            if (keyboard == null) return;
+
+            // When monitor is open, allow closing it with Escape or Down Arrow
+            if (_isMonitorOpen)
+            {
+                if (keyboard.escapeKey.wasPressedThisFrame || keyboard.downArrowKey.wasPressedThisFrame)
+                {
+                    SetMonitorState(false);
+                }
+                return;
+            }
+
+            // Only allow direct spacebar hotkey if explicitly enabled in inspector;
+            // Otherwise, camera must be opened by clicking the computer terminal on Tyler's desk!
+            if (_allowDirectKeyboardMonitorToggle && keyboard.spaceKey.wasPressedThisFrame)
             {
                 ToggleMonitor();
             }

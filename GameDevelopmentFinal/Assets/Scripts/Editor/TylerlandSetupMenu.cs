@@ -360,12 +360,21 @@ namespace Tylerland.Editor
             light.intensity = 1.3f;
 
             // 3. 100% 2D Sprite Desk, Floor & Ceiling Layers (Zero 3D Cubes!)
+            // Placed on the Tyler animatronic side (Center), offset to the side at X = 1.75m so it does NOT block the doorway at X = 0!
             var desk2DObj = new GameObject("SecurityDesk_2DSprite");
             desk2DObj.transform.SetParent(officeRoot.transform, false);
-            desk2DObj.transform.localPosition = new Vector3(0, 0.65f, 1.15f);
+            desk2DObj.transform.localPosition = new Vector3(1.75f, 0.45f, 2.30f);
             desk2DObj.transform.localRotation = Quaternion.identity;
             var deskSR = desk2DObj.AddComponent<SpriteRenderer>();
             deskSR.sortingOrder = 20;
+
+            // Fixed Computer Terminal sitting on the desk on the Tyler animatronic side
+            var comp2DObj = new GameObject("ComputerMonitor_2DSprite");
+            comp2DObj.transform.SetParent(desk2DObj.transform, false);
+            comp2DObj.transform.localPosition = new Vector3(0, 0.45f, 0);
+            comp2DObj.transform.localRotation = Quaternion.identity;
+            var compSR = comp2DObj.AddComponent<SpriteRenderer>();
+            compSR.sortingOrder = 22;
 
             var floor2DObj = new GameObject("Floor_2DSprite");
             floor2DObj.transform.SetParent(officeRoot.transform, false);

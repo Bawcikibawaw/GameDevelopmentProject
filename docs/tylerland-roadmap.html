@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+  <title>Tylerland — Developer Systems Roadmap (Mobile & Desktop)</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #0c1221; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; touch-action: none; }
+
+    #canvas {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+      overflow: hidden;
+      cursor: grab;
+      touch-action: none;
+    }
+    #canvas.dragging { cursor: grabbing; }
+
+    /* Single transform container — nodes + SVG live here */
+    #world {
+      position: absolute;
+      top: 0; left: 0;
+      transform-origin: 0 0;
+      touch-action: none;
+    }
+
+    .node {
+      position: absolute;
+      border-radius: 12px;
+      padding: 12px 16px;
+      min-width: 180px;
+      max-width: 240px;
+      cursor: move;
+      user-select: none;
+      -webkit-user-select: none;
+      transition: box-shadow 0.15s ease, border-color 0.15s ease;
+      border: 2px solid transparent;
+      z-index: 2;
+      touch-action: none;
+    }
+    .node:hover {
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+      z-index: 10;
+    }
+    .node.selected {
+      border-color: #6366f1 !important;
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.35), 0 8px 24px rgba(0,0,0,0.3);
+      z-index: 15;
+    }
+    .node.connected-peer {
+      border-color: rgba(165,180,252,0.7) !important;
+      box-shadow: 0 0 0 2px rgba(99,102,241,0.2);
+    }
+    .node-title { font-weight: 700; font-size: 13px; line-height: 1.3; margin-bottom: 4px; }
+    .node-section { font-size: 11px; opacity: 0.6; margin-bottom: 3px; font-weight: 600; }
+    .node-desc { font-size: 11px; opacity: 0.78; line-height: 1.35; }
+    .node-tier {
+      display: inline-block; font-size: 9px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.6px;
+      padding: 2px 6px; border-radius: 4px; margin-top: 6px;
+    }
+
+    .cat-core { background: #1e293b; color: #e2e8f0; border-color: #334155; }
+    .cat-core .node-tier { background: #475569; color: #e2e8f0; }
+    .cat-office { background: #1e3a5f; color: #bfdbfe; border-color: #2563eb; }
+    .cat-office .node-tier { background: #2563eb; color: #fff; }
+    .cat-animatronic { background: #3b1a2e; color: #fda4af; border-color: #e11d48; }
+    .cat-animatronic .node-tier { background: #e11d48; color: #fff; }
+    .cat-economy { background: #1a3326; color: #a7f3d0; border-color: #10b981; }
+    .cat-economy .node-tier { background: #10b981; color: #064e3b; }
+    .cat-presentation { background: #2d1f47; color: #d8b4fe; border-color: #8b5cf6; }
+    .cat-presentation .node-tier { background: #8b5cf6; color: #fff; }
+    .cat-tools { background: #3b2f1a; color: #fde68a; border-color: #f59e0b; }
+    .cat-tools .node-tier { background: #f59e0b; color: #422006; }
+
+    /* SVG connections */
+    svg#connections {
+      position: absolute;
+      top: 0; left: 0;
+      overflow: visible;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* Fixed UI overlays */
+    #title-bar {
+      position: fixed; top: 12px; left: 12px;
+      background: rgba(15,23,42,0.92); backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;
+      padding: 10px 16px; z-index: 100; color: #e2e8f0;
+      max-width: calc(100vw - 24px);
+    }
+    #title-bar h1 { font-size: 15px; font-weight: 800; letter-spacing: -0.3px; }
+    #title-bar p  { font-size: 11px; opacity: 0.65; margin-top: 2px; }
+
+    #toolbar {
+      position: fixed; top: 12px; right: 12px;
+      display: flex; gap: 6px; z-index: 100;
+      flex-wrap: wrap; justify-content: flex-end;
+    }
+    .tool-btn {
+      background: rgba(15,23,42,0.92); backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.12); color: #e2e8f0;
+      padding: 6px 12px; border-radius: 8px; cursor: pointer;
+      font-size: 12px; font-weight: 600; transition: all 0.15s;
+      display: inline-flex; align-items: center; gap: 5px;
+      text-decoration: none;
+    }
+    .tool-btn:hover, .tool-btn:active { background: rgba(30,41,59,0.98); border-color: #6366f1; }
+    .tool-btn.highlight { background: #4338ca; color: #fff; border-color: #818cf8; }
+
+    #legend {
+      position: fixed; bottom: 12px; left: 12px;
+      background: rgba(15,23,42,0.92); backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;
+      padding: 10px 14px; z-index: 100; color: #e2e8f0;
+    }
+    .legend-item { display: flex; align-items: center; gap: 8px; font-size: 11px; margin-bottom: 3px; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+
+    #minimap {
+      position: fixed; bottom: 12px; right: 12px;
+      width: 200px; height: 130px;
+      background: rgba(15,23,42,0.92); backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;
+      z-index: 100; overflow: hidden;
+    }
+    #minimap canvas { width: 100%; height: 100%; }
+
+    /* Modal for Phone QR Connection */
+    #phoneModal {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(8px);
+      z-index: 200; display: none; align-items: center; justify-content: center; padding: 16px;
+    }
+    #phoneModal.visible { display: flex; }
+    .modal-box {
+      background: #0f172a; border: 1px solid rgba(99,102,241,0.4); border-radius: 16px;
+      padding: 24px; max-width: 420px; width: 100%; color: #e2e8f0; text-align: center;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+    }
+
+    /* Mobile Responsive Media Queries */
+    @media (max-width: 768px) {
+      #title-bar {
+        top: 8px; left: 8px; right: 8px; padding: 8px 12px;
+        border-radius: 10px;
+      }
+      #title-bar h1 { font-size: 13px; }
+      #title-bar p { display: none; }
+      #toolbar {
+        top: auto; bottom: 8px; left: 8px; right: 8px;
+        justify-content: center; gap: 4px;
+        background: rgba(15,23,42,0.95); backdrop-filter: blur(12px);
+        padding: 6px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);
+      }
+      .tool-btn { padding: 6px 10px; font-size: 11px; flex: 1; justify-content: center; }
+      #minimap { display: none; }
+      #legend { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="title-bar">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div>
+        <h1>🎮 Tylerland — Developer Systems Roadmap</h1>
+        <p>1-Finger Drag & Pan · 2-Finger Pinch Zoom · Tap Node to Highlight Connections</p>
+      </div>
+      <button class="tool-btn highlight" onclick="togglePhoneModal()" style="margin-left:8px;">
+        📱 Phone
+      </button>
+    </div>
+  </div>
+
+  <div id="toolbar">
+    <a href="tylerland-art-roadmap.html" class="tool-btn highlight">🎨 2D Art Map</a>
+    <a href="tylerland-scripts-roadmap.html" class="tool-btn highlight">🧩 30 Scripts Map</a>
+    <button class="tool-btn" onclick="resetView()">⊞ Reset</button>
+    <button class="tool-btn" onclick="fitAll()">⊡ Fit All</button>
+    <button class="tool-btn" id="toggleConns" onclick="toggleConnections()">⊘ Lines</button>
+  </div>
+
+  <div id="canvas">
+    <div id="world">
+      <svg id="connections" width="1" height="1"></svg>
+      <!-- nodes are appended here by JS -->
+    </div>
+  </div>
+
+  <div id="legend">
+    <div style="font-weight:700;font-size:12px;margin-bottom:6px;">Systems</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#334155;"></div> Core Run Systems</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#2563eb;"></div> Office Systems</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#e11d48;"></div> Animatronic Systems</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#10b981;"></div> Economy & Shops</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#8b5cf6;"></div> Presentation</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f59e0b;"></div> Debug & Tools</div>
+    <div style="font-size:9.5px;opacity:0.5;margin-top:6px;border-top:1px solid rgba(255,255,255,0.1);padding-top:4px;">
+      MVP · Full · Stretch
+    </div>
+  </div>
+
+  <div id="minimap"><canvas id="minimapCanvas"></canvas></div>
+
+  <!-- Phone Connect & QR Modal -->
+  <div id="phoneModal" onclick="if(event.target===this) togglePhoneModal()">
+    <div class="modal-box">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 style="font-weight:800; font-size:16px; color:#a5b4fc;">📱 Open on Your Phone</h3>
+        <button onclick="togglePhoneModal()" style="color:#94a3b8; font-size:18px;">✕</button>
+      </div>
+      <p style="font-size:12px; color:#94a3b8; margin-bottom:16px;">
+        Connect your phone to the same Wi-Fi and scan this QR code with your camera:
+      </p>
+      <div style="background:#fff; padding:12px; border-radius:12px; display:inline-block; margin-bottom:14px;">
+        <img id="qrCodeImg" src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=http://192.168.1.30:8080/tylerland-roadmap.html" alt="QR Code" width="180" height="180" style="display:block;">
+      </div>
+      <div id="phoneUrlText" style="background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:10px; font-family:monospace; font-size:12px; color:#c7d2fe; word-break:break-all; margin-bottom:14px;">
+        http://192.168.1.30:8080/tylerland-roadmap.html
+      </div>
+      <p style="font-size:11px; color:#64748b;">
+        Full touch drag & pinch-to-zoom enabled on iPhone Safari & Android Chrome!
+      </p>
+    </div>
+  </div>
+
+<script>
+// ─── DATA ───────────────────────────────────────────────────────────
+const nodes = [
+  // Core Run Systems (col 1)
+  { id: 'fsm',       cat: 'core',        tier: 'MVP',     sec: '§3.1', title: 'Game Flow\nState Machine',      desc: 'Boot→Menu→Night→Shop→Dead loop',                      x: 80,   y: 80 },
+  { id: 'clock',     cat: 'core',        tier: 'MVP',     sec: '§3.2', title: 'Night Clock',                  desc: '12AM–6AM, 90s/hr, hourBlend',                          x: 80,   y: 230 },
+  { id: 'runmgr',    cat: 'core',        tier: 'MVP',     sec: '§3.3', title: 'Run Manager',                  desc: 'RunState (money, upgrades, weapons, damage)',           x: 80,   y: 380 },
+  { id: 'meta',      cat: 'core',        tier: 'MVP',     sec: '§3.4', title: 'Meta Progression\n& Save/Load',desc: 'Soul Coins, unlocks, JSON save',                       x: 80,   y: 540 },
+
+  // Office Systems (col 2)
+  { id: 'view',      cat: 'office',      tier: 'MVP',     sec: '§4.1', title: 'Player View\n& Input (2.5D)',   desc: '3D camera rotation in 100% 2D sprite office, 4 angles', x: 400,  y: 60 },
+  { id: 'cameras',   cat: 'office',      tier: 'MVP',     sec: '§4.2', title: '4-Room Camera\nSystem (2D)',    desc: '4 Animatronic Rooms: 100% 2D fixed anchor positions per phase (no zooming/creeping toward camera)', x: 400,  y: 210 },
+  { id: 'doors',     cat: 'office',      tier: 'MVP',     sec: '§4.3', title: 'Door System (2D)',              desc: 'Energy (no night regen) + Durability, 2D sprite shutters', x: 400,  y: 370 },
+  { id: 'attack',    cat: 'office',      tier: 'MVP',     sec: '§4.4', title: 'Attack Window\n& Resolution',  desc: 'Per-character windows (20s/15s/12s/10s/8s) → kill or block', x: 400,  y: 530 },
+  { id: 'phone',     cat: 'office',      tier: 'MVP',     sec: '§4.5', title: 'Phone System',                 desc: 'Scheduled calls, subtitles, lore hooks',               x: 400,  y: 680 },
+
+  // Animatronic Systems (col 3 — GDD Section 4)
+  { id: 'progai',    cat: 'animatronic', tier: 'MVP',     sec: '§5.1', title: 'Progression AI',               desc: 'Fixed anchor positions per phase (no creeping). Damage triggers Form Change + Location Change', x: 740,  y: 60 },
+  { id: 'cast',      cat: 'animatronic', tier: 'MVP',     sec: '§5.2', title: 'Cast Config (2D)',              desc: 'Tyler the Lion, Orville the Orca, Sandy the Snake, Erle the Eagle (Fixed phase anchors)', x: 740,  y: 210 },
+  { id: 'snake',     cat: 'animatronic', tier: 'Full',    sec: '§5.3', title: 'Nightmare Sandy:\nDecoys & Spoofing', desc: '5 stages, 8s window, shed decoy shells at fixed anchors, feed spoofing', x: 740,  y: 370 },
+  { id: 'jumpscare', cat: 'animatronic', tier: 'MVP',     sec: '§5.4', title: 'Attack &\nJumpscare (2D)',     desc: 'Distinct Normal & Nightmare 2D jumpscare frames + GDD kills', x: 740,  y: 520 },
+  { id: 'weapons',   cat: 'animatronic', tier: 'Full',    sec: '§5.5', title: 'Special Weapons',              desc: 'Permanent unlocks (1/run): Hits trigger Form Change (Nightmare) + Location Change (room retreat)', x: 740,  y: 670 },
+  { id: 'damage',    cat: 'animatronic', tier: 'Full',    sec: '§5.6', title: 'Nightmare System (2D)',         desc: 'When damaged: Form changes (nightmare sprites) AND Location changes (relocates to stage 0)', x: 740,  y: 820 },
+  { id: 'boss',      cat: 'animatronic', tier: 'Stretch', sec: '§5.7', title: 'True Final Boss',              desc: 'Requires all 4 Nightmare forms active in the same run (§4.7)', x: 740,  y: 970 },
+
+  // Economy (col 4)
+  { id: 'salary',    cat: 'economy',     tier: 'MVP',     sec: '§6.1', title: 'Night End\n& Salary',          desc: 'Base + bonus − repairs, breakdown screen',             x: 1100, y: 80 },
+  { id: 'shop',      cat: 'economy',     tier: 'MVP',     sec: '§6.2', title: 'Normal Shop',                  desc: '4 offers, reroll, stackable upgrades',                 x: 1100, y: 260 },
+  { id: 'soulshop',  cat: 'economy',     tier: 'Full',    sec: '§6.3', title: 'Soul Coins\n& Soul Shop',      desc: 'Persistent currency, permanent unlocks',               x: 1100, y: 440 },
+  { id: 'minigames', cat: 'economy',     tier: 'Full',    sec: '§6.4', title: 'Minigames',                    desc: 'Lever, Wire, Memory — reward table',                   x: 1100, y: 620 },
+
+  // Presentation (col 5)
+  { id: 'audio',     cat: 'presentation',tier: 'MVP',     sec: '§7.1', title: 'Audio System',                 desc: '6 buses, spatial 3D audio, cues by stage',             x: 1420, y: 80 },
+  { id: 'lighting',  cat: 'presentation',tier: 'Full',    sec: '§7.2', title: '2D Lighting &\nAtmosphere',     desc: '2D sprite darkness/light tinting, F-key flicker',      x: 1420, y: 260 },
+  { id: 'envstory',  cat: 'presentation',tier: 'Full',    sec: '§7.3', title: 'Environmental\nStorytelling',   desc: '2D hand-drawn wall posters, notes, lore flags',        x: 1420, y: 440 },
+  { id: 'ui',        cat: 'presentation',tier: 'MVP',     sec: '§7.4', title: 'UI, Menus\n& Settings',        desc: '2D HUD, 4-room tablet map, shop layout, settings',     x: 1420, y: 620 },
+
+  // Tools (col 6)
+  { id: 'scaling',   cat: 'tools',       tier: 'MVP',     sec: '§8.1', title: 'Night Scaling\nTable',         desc: 'AI levels per night, seconds/hour',                    x: 1740, y: 80 },
+  { id: 'debug',     cat: 'tools',       tier: 'MVP',     sec: '§8.2', title: 'Debug &\nBalance Tools',       desc: 'Overlay, cheats, CSV log, hot-reload',                 x: 1740, y: 260 },
+  { id: 'testing',   cat: 'tools',       tier: 'Full',    sec: '§8.3', title: 'Testing Plan',                 desc: 'Unit tests, playtests, regression',                    x: 1740, y: 440 },
+  { id: 'risks',     cat: 'tools',       tier: 'Full',    sec: '§8.4', title: 'Risks &\nCut List',            desc: 'Art scope, Snake complexity, boss',                    x: 1740, y: 620 },
+];
+
+const connections = [
+  ['fsm','clock',''],['fsm','runmgr',''],['fsm','meta',''],['clock','runmgr','OnNightCompleted'],
+  ['fsm','view','NightActive state'],['clock','cameras','hourBlendFactor'],['clock','attack',''],['runmgr','doors','upgrades[]'],
+  ['clock','progai','AI tick + hour ramp'],['runmgr','damage','RunState.damage'],
+  ['runmgr','salary','nightHistory'],['runmgr','shop','RunState.money'],['meta','soulshop','MetaState.soulCoins'],
+  ['fsm','salary','NightEnd state'],['fsm','shop','Shop state'],['fsm','minigames','Minigame state'],
+  ['view','cameras','monitor raise'],['view','doors','input → close/open'],['cameras','doors',''],
+  ['doors','attack','door state'],['attack','jumpscare','OnJumpscare'],
+  ['cameras','snake','feed modifier'],['cameras','progai','camera interaction'],['attack','progai','AttackReady'],
+  ['progai','cast','AnimatronicConfig'],['cast','jumpscare','killSequenceId'],['cast','weapons','per-character weapon'],
+  ['cast','damage','per-character mods'],['progai','jumpscare','stage → attack window'],
+  ['weapons','damage','damage dealt'],['damage','boss','behavior changes'],['progai','boss','overrides standard AI'],
+  ['snake','cameras','distorts feed'],
+  ['salary','shop','postSalaryChoice'],['salary','minigames','postSalaryChoice'],
+  ['minigames','soulshop','onSuccess → access'],['damage','salary','repairDeduction'],['weapons','salary','repairCost'],
+  ['soulshop','meta','permanent unlocks'],['salary','meta','soulCoins earned'],
+  ['progai','audio','footstep cues by stage'],['doors','audio','door sounds'],['phone','audio','call ducking'],
+  ['attack','audio','warning cue'],['clock','lighting','time-of-night'],['phone','envstory','loreHooks'],
+  ['meta','envstory','lore flags'],['shop','ui','shop layout'],['soulshop','ui','soul shop layout'],
+  ['doors','ui','energy/durability HUD'],['clock','ui','clock display'],['meta','ui','settings'],
+  ['progai','scaling','aiLevel per night'],['progai','debug','overlay data'],['doors','debug','energy/durability'],
+  ['scaling','testing','balance targets'],['debug','testing',''],
+  ['boss','risks','undefined scope'],['snake','risks','complexity risk'],['damage','risks','art scope risk'],
+];
+
+// ─── STATE ──────────────────────────────────────────────────────────
+const canvasEl = document.getElementById('canvas');
+const world    = document.getElementById('world');
+const svg      = document.getElementById('connections');
+
+let panX = 0, panY = 0, scale = 1;
+let isPanning = false, panStartX = 0, panStartY = 0;
+let selectedNode = null;
+let showConns = true;
+
+// ─── CREATE NODES ───────────────────────────────────────────────────
+const nodeEls = {};
+nodes.forEach(n => {
+  const el = document.createElement('div');
+  el.className = `node cat-${n.cat}`;
+  el.id = `node-${n.id}`;
+  el.innerHTML = `
+    <div class="node-section">${n.sec}</div>
+    <div class="node-title">${n.title.replace(/\n/g, '<br>')}</div>
+    <div class="node-desc">${n.desc}</div>
+    <div class="node-tier">${n.tier}</div>
+  `;
+  el.style.left = n.x + 'px';
+  el.style.top  = n.y + 'px';
+  world.appendChild(el);
+  nodeEls[n.id] = el;
+
+  // Mouse Drag
+  let dragging = false, dx = 0, dy = 0;
+  el.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    dragging = true;
+    dx = (e.clientX - panX) / scale - n.x;
+    dy = (e.clientY - panY) / scale - n.y;
+    el.style.zIndex = 50;
+    selectNode(n.id);
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    n.x = (e.clientX - panX) / scale - dx;
+    n.y = (e.clientY - panY) / scale - dy;
+    el.style.left = n.x + 'px';
+    el.style.top  = n.y + 'px';
+    drawConnections();
+    drawMinimap();
+  });
+  document.addEventListener('mouseup', () => {
+    if (dragging) { dragging = false; el.style.zIndex = selectedNode === n.id ? 15 : 2; }
+  });
+
+  // Touch Drag for Mobile
+  let touchStartPos = { x: 0, y: 0 };
+  let hasMovedNode = false;
+  el.addEventListener('touchstart', e => {
+    if (e.touches.length === 1) {
+      e.stopPropagation();
+      const t = e.touches[0];
+      touchStartPos = { x: t.clientX, y: t.clientY };
+      dx = (t.clientX - panX) / scale - n.x;
+      dy = (t.clientY - panY) / scale - n.y;
+      el.style.zIndex = 50;
+      hasMovedNode = false;
+    }
+  }, { passive: true });
+
+  el.addEventListener('touchmove', e => {
+    if (e.touches.length === 1) {
+      const t = e.touches[0];
+      const dist = Math.hypot(t.clientX - touchStartPos.x, t.clientY - touchStartPos.y);
+      if (dist > 4) {
+        hasMovedNode = true;
+        n.x = (t.clientX - panX) / scale - dx;
+        n.y = (t.clientY - panY) / scale - dy;
+        el.style.left = n.x + 'px';
+        el.style.top  = n.y + 'px';
+        drawConnections();
+        drawMinimap();
+      }
+    }
+  }, { passive: true });
+
+  el.addEventListener('touchend', () => {
+    el.style.zIndex = selectedNode === n.id ? 15 : 2;
+    if (!hasMovedNode) {
+      selectNode(n.id);
+    }
+  });
+});
+
+function selectNode(id) {
+  selectedNode = id;
+  const peerIds = new Set();
+  connections.forEach(([f, t]) => {
+    if (f === id) peerIds.add(t);
+    if (t === id) peerIds.add(f);
+  });
+
+  nodes.forEach(n => {
+    const el = nodeEls[n.id];
+    el.classList.toggle('selected', n.id === id);
+    el.classList.toggle('connected-peer', peerIds.has(n.id));
+  });
+
+  drawConnections();
+  drawMinimap();
+}
+
+function clearSelection() {
+  selectedNode = null;
+  nodes.forEach(n => {
+    const el = nodeEls[n.id];
+    el.classList.remove('selected', 'connected-peer');
+  });
+  drawConnections();
+  drawMinimap();
+}
+
+// ─── MOUSE PAN & WHEEL ZOOM ─────────────────────────────────────────
+canvasEl.addEventListener('mousedown', e => {
+  if (e.target === canvasEl || e.target === world || e.target === svg) {
+    isPanning = true;
+    panStartX = e.clientX - panX;
+    panStartY = e.clientY - panY;
+    canvasEl.classList.add('dragging');
+    if (selectedNode) clearSelection();
+  }
+});
+document.addEventListener('mousemove', e => {
+  if (!isPanning) return;
+  panX = e.clientX - panStartX;
+  panY = e.clientY - panStartY;
+  applyTransform();
+});
+document.addEventListener('mouseup', () => {
+  isPanning = false;
+  canvasEl.classList.remove('dragging');
+});
+
+canvasEl.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY > 0 ? 0.92 : 1.08;
+  const newScale = Math.max(0.15, Math.min(3, scale * factor));
+  panX = e.clientX - (e.clientX - panX) * (newScale / scale);
+  panY = e.clientY - (e.clientY - panY) * (newScale / scale);
+  scale = newScale;
+  applyTransform();
+}, { passive: false });
+
+// ─── TOUCH PAN & PINCH ZOOM ─────────────────────────────────────────
+let initialPinchDist = 0, initialPinchScale = 1;
+let touchPanStartX = 0, touchPanStartY = 0;
+let canvasTouchMoved = false;
+
+canvasEl.addEventListener('touchstart', e => {
+  if (e.target !== canvasEl && e.target !== world && e.target !== svg) return;
+  if (e.touches.length === 1) {
+    isPanning = true;
+    canvasTouchMoved = false;
+    touchPanStartX = e.touches[0].clientX - panX;
+    touchPanStartY = e.touches[0].clientY - panY;
+  } else if (e.touches.length === 2) {
+    isPanning = false;
+    const t1 = e.touches[0], t2 = e.touches[1];
+    initialPinchDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+    initialPinchScale = scale;
+  }
+}, { passive: true });
+
+canvasEl.addEventListener('touchmove', e => {
+  if (isPanning && e.touches.length === 1) {
+    canvasTouchMoved = true;
+    panX = e.touches[0].clientX - touchPanStartX;
+    panY = e.touches[0].clientY - touchPanStartY;
+    applyTransform();
+  } else if (e.touches.length === 2 && initialPinchDist > 0) {
+    const t1 = e.touches[0], t2 = e.touches[1];
+    const currentDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+    const midX = (t1.clientX + t2.clientX) / 2;
+    const midY = (t1.clientY + t2.clientY) / 2;
+    const factor = currentDist / initialPinchDist;
+    const newScale = Math.max(0.15, Math.min(3, initialPinchScale * factor));
+    panX = midX - (midX - panX) * (newScale / scale);
+    panY = midY - (midY - panY) * (newScale / scale);
+    scale = newScale;
+    applyTransform();
+  }
+}, { passive: true });
+
+canvasEl.addEventListener('touchend', e => {
+  if (e.touches.length === 0) {
+    isPanning = false;
+    initialPinchDist = 0;
+    if (!canvasTouchMoved && selectedNode) clearSelection();
+  } else if (e.touches.length === 1) {
+    isPanning = true;
+    touchPanStartX = e.touches[0].clientX - panX;
+    touchPanStartY = e.touches[0].clientY - panY;
+    initialPinchDist = 0;
+  }
+});
+
+// ─── TRANSFORM APPLIER ──────────────────────────────────────────────
+function applyTransform() {
+  world.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+  drawMinimap();
+}
+
+// ─── CONNECTIONS ────────────────────────────────────────────────────
+function drawConnections() {
+  if (!showConns) { svg.innerHTML = ''; return; }
+
+  let html = '<defs>';
+  html += '<marker id="arr" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="rgba(148,163,184,0.5)"/></marker>';
+  html += '<marker id="arr-hl" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="rgba(99,102,241,0.9)"/></marker>';
+  html += '</defs>';
+
+  connections.forEach(([from, to, label]) => {
+    const hl = selectedNode && (from === selectedNode || to === selectedNode);
+    const opacity = selectedNode ? (hl ? 0.9 : 0.06) : 0.3;
+    const stroke  = hl ? '#6366f1' : '#94a3b8';
+    const sw      = hl ? 2.5 : 1.2;
+    const marker   = hl ? 'url(#arr-hl)' : 'url(#arr)';
+
+    const nf = nodes.find(n => n.id === from);
+    const nt = nodes.find(n => n.id === to);
+    if (!nf || !nt) return;
+    const ef = nodeEls[from], et = nodeEls[to];
+    const fw = ef.offsetWidth, fh = ef.offsetHeight;
+    const tw = et.offsetWidth, th = et.offsetHeight;
+
+    const fcx = nf.x + fw / 2, fcy = nf.y + fh / 2;
+    const tcx = nt.x + tw / 2, tcy = nt.y + th / 2;
+    const ang = Math.atan2(tcy - fcy, tcx - fcx);
+
+    let fx, fy;
+    if (Math.abs(Math.cos(ang)) * fh > Math.abs(Math.sin(ang)) * fw) {
+      fx = fcx + (Math.cos(ang) > 0 ? fw / 2 : -fw / 2);
+      fy = fcy + Math.tan(ang) * (Math.cos(ang) > 0 ? fw / 2 : -fw / 2);
+    } else {
+      fy = fcy + (Math.sin(ang) > 0 ? fh / 2 : -fh / 2);
+      fx = fcx + (1 / Math.tan(ang)) * (Math.sin(ang) > 0 ? fh / 2 : -fh / 2);
+    }
+
+    const rAng = ang + Math.PI;
+    let tx, ty;
+    if (Math.abs(Math.cos(rAng)) * th > Math.abs(Math.sin(rAng)) * tw) {
+      tx = tcx + (Math.cos(rAng) > 0 ? tw / 2 : -tw / 2);
+      ty = tcy + Math.tan(rAng) * (Math.cos(rAng) > 0 ? tw / 2 : -tw / 2);
+    } else {
+      ty = tcy + (Math.sin(rAng) > 0 ? th / 2 : -th / 2);
+      tx = tcx + (1 / Math.tan(rAng)) * (Math.sin(rAng) > 0 ? th / 2 : -th / 2);
+    }
+
+    const cp1x = fx + (tx - fx) * 0.4, cp1y = fy;
+    const cp2x = fx + (tx - fx) * 0.6, cp2y = ty;
+    html += `<path d="M${fx},${fy} C${cp1x},${cp1y} ${cp2x},${cp2y} ${tx},${ty}" fill="none" stroke="${stroke}" stroke-width="${sw}" opacity="${opacity}" marker-end="${marker}"/>`;
+
+    if (label && hl) {
+      const lx = (fx + tx) / 2, ly = (fy + ty) / 2 - 10;
+      html += `<text x="${lx}" y="${ly}" fill="#a5b4fc" font-size="10" text-anchor="middle" font-family="sans-serif" opacity="0.9">${label}</text>`;
+    }
+  });
+  svg.innerHTML = html;
+}
+
+// ─── MINIMAP ────────────────────────────────────────────────────────
+const mmCanvas = document.getElementById('minimapCanvas');
+const mctx = mmCanvas.getContext('2d');
+
+function drawMinimap() {
+  if (window.innerWidth <= 768) return;
+  const dpr = window.devicePixelRatio || 1;
+  mmCanvas.width  = 200 * dpr;
+  mmCanvas.height = 140 * dpr;
+  mctx.scale(dpr, dpr);
+  mctx.clearRect(0, 0, 200, 140);
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  nodes.forEach(n => {
+    minX = Math.min(minX, n.x);      minY = Math.min(minY, n.y);
+    maxX = Math.max(maxX, n.x + 200); maxY = Math.max(maxY, n.y + 120);
+  });
+  const pad = 40;
+  minX -= pad; minY -= pad; maxX += pad; maxY += pad;
+  const sw = maxX - minX, sh = maxY - minY;
+  const ms = Math.min(190 / sw, 130 / sh);
+  const ox = 5 + (190 - sw * ms) / 2;
+  const oy = 5 + (130 - sh * ms) / 2;
+  const catC = { core:'#475569', office:'#2563eb', animatronic:'#e11d48', economy:'#10b981', presentation:'#8b5cf6', tools:'#f59e0b' };
+
+  connections.forEach(([from, to]) => {
+    const a = nodes.find(n => n.id === from), b = nodes.find(n => n.id === to);
+    if (!a || !b) return;
+    mctx.beginPath();
+    mctx.moveTo(ox + (a.x - minX + 90) * ms, oy + (a.y - minY + 50) * ms);
+    mctx.lineTo(ox + (b.x - minX + 90) * ms, oy + (b.y - minY + 50) * ms);
+    mctx.strokeStyle = 'rgba(148,163,184,0.15)'; mctx.lineWidth = 0.5; mctx.stroke();
+  });
+
+  nodes.forEach(n => {
+    mctx.fillStyle = catC[n.cat] || '#666';
+    mctx.globalAlpha = n.id === selectedNode ? 1 : 0.6;
+    mctx.fillRect(ox + (n.x - minX) * ms, oy + (n.y - minY) * ms, Math.max(8, 180 * ms), Math.max(4, 80 * ms));
+  });
+  mctx.globalAlpha = 1;
+
+  const vw = window.innerWidth, vh = window.innerHeight;
+  mctx.strokeStyle = 'rgba(99,102,241,0.7)'; mctx.lineWidth = 1.5;
+  mctx.strokeRect(
+    ox + (-panX / scale - minX) * ms,
+    oy + (-panY / scale - minY) * ms,
+    (vw / scale) * ms,
+    (vh / scale) * ms
+  );
+}
+
+// ─── TOOLBAR ────────────────────────────────────────────────────────
+function resetView() {
+  const isMobile = window.innerWidth <= 768;
+  scale = isMobile ? 0.45 : 1;
+  panX = isMobile ? 16 : 40;
+  panY = isMobile ? 65 : 40;
+  applyTransform();
+  drawConnections();
+}
+
+function fitAll() {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  nodes.forEach(n => {
+    const el = nodeEls[n.id];
+    minX = Math.min(minX, n.x);      minY = Math.min(minY, n.y);
+    maxX = Math.max(maxX, n.x + el.offsetWidth);
+    maxY = Math.max(maxY, n.y + el.offsetHeight);
+  });
+  const pad = window.innerWidth <= 768 ? 40 : 80;
+  const w = maxX - minX + pad * 2, h = maxY - minY + pad * 2;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  scale = Math.min(vw / w, vh / h, 1.2);
+  panX = (vw - w * scale) / 2 - minX * scale + pad * scale;
+  panY = (vh - h * scale) / 2 - minY * scale + pad * scale;
+  applyTransform();
+  drawConnections();
+}
+
+function toggleConnections() {
+  showConns = !showConns;
+  document.getElementById('toggleConns').textContent = showConns ? '⊘ Hide Lines' : '⊘ Show Lines';
+  drawConnections();
+}
+
+function togglePhoneModal() {
+  const modal = document.getElementById('phoneModal');
+  modal.classList.toggle('visible');
+  if (modal.classList.contains('visible') && window.location.host && !window.location.host.startsWith('localhost') && !window.location.host.startsWith('127.0.0.1')) {
+    const fullUrl = window.location.href;
+    const txt = document.getElementById('phoneUrlText');
+    if (txt) txt.textContent = fullUrl;
+    const qr = document.getElementById('qrCodeImg');
+    if (qr) qr.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(fullUrl)}`;
+  }
+}
+
+// ─── INIT ───────────────────────────────────────────────────────────
+function initView() {
+  const isMobile = window.innerWidth <= 768;
+  scale = isMobile ? 0.45 : 1;
+  panX = isMobile ? 16 : 40;
+  panY = isMobile ? 65 : 40;
+  applyTransform();
+  drawConnections();
+}
+initView();
+window.addEventListener('resize', () => { drawConnections(); drawMinimap(); });
+</script>
+</body>
+</html>
