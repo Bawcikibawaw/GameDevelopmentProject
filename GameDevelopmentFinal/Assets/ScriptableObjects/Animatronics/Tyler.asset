@@ -14,8 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Tylerland.Config.AnimatronicConfig
   animatronicId: tyler
   displayName: Tyler the Lion
-  formerRole: Lead Singer / Central Mascot
-  themeColor: {r: 0.85, g: 0.35, b: 0.25, a: 1}
+  formerRole: Lead singer / central mascot
+  themeColor: {r: 0.88, g: 0.22, b: 0.2, a: 1}
   targetDoorIndex: 1
   activeFromNight: 4
   passiveObserverBeforeActiveNight: 1
@@ -23,13 +23,13 @@ MonoBehaviour:
   nightmareStageCount: 3
   cameraRouteIndices: 010000000100000001000000
   retreatStageIndex: 0
-  attackWindowSeconds: 10
-  nightmareAttackWindowSeconds: 10
+  attackWindowSeconds: 7
+  nightmareAttackWindowSeconds: 6
   extraDurabilityLossOnBlock: 15
   energyDrainOnNormalBlock: 0
   energyDrainOnNightmareBlock: 12
-  baseTickInterval: 4.9
-  lateNightAIRamp: 2
+  baseTickInterval: 3.5
+  lateNightAIRamp: 3
   cameraBehavior: 4
   counterWeaponId: Shotgun
   cameraStageSprites: []
