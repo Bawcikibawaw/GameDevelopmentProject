@@ -14,22 +14,22 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Tylerland.Config.AnimatronicConfig
   animatronicId: sandy
   displayName: Sandy the Snake
-  formerRole: Maintenance / repair mascot
-  themeColor: {r: 0.32, g: 0.82, b: 0.35, a: 1}
+  formerRole: Maintenance / Repair Mascot
+  themeColor: {r: 0.35, g: 0.85, b: 0.4, a: 1}
   targetDoorIndex: 3
   activeFromNight: 1
   passiveObserverBeforeActiveNight: 0
   normalStageCount: 3
   nightmareStageCount: 3
-  cameraRouteIndices: 0300000003000000030000000300000003000000
+  cameraRouteIndices: 030000000300000003000000
   retreatStageIndex: 0
-  attackWindowSeconds: 8
-  nightmareAttackWindowSeconds: 5.5
+  attackWindowSeconds: 20
+  nightmareAttackWindowSeconds: 8
   extraDurabilityLossOnBlock: 10
   energyDrainOnNormalBlock: 0
-  energyDrainOnNightmareBlock: 25
-  baseTickInterval: 3.4
-  lateNightAIRamp: 3
+  energyDrainOnNightmareBlock: 22
+  baseTickInterval: 5
+  lateNightAIRamp: 2
   cameraBehavior: 3
   counterWeaponId: Spiked Mace
   cameraStageSprites:
@@ -42,6 +42,7 @@ MonoBehaviour:
   - {fileID: 0}
   - {fileID: 0}
   - {fileID: 0}
+  stageAnchorCoordinates: []
   decoyShellSprite: {fileID: 0}
   emptyRoomSprite: {fileID: 0}
   doorwaySpritesByDamage:

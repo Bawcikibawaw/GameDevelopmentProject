@@ -40,7 +40,7 @@ namespace Tylerland.Office
 
         [Header("Edge Panning")]
         [Tooltip("Enable mouse edge panning")]
-        [SerializeField] private bool _enableEdgePan = true;
+        [SerializeField] private bool _enableEdgePan = false;
 
         [Tooltip("Percentage of screen width on edges that triggers view turning (default 12%)")]
         [Range(0.05f, 0.25f)]
@@ -99,7 +99,7 @@ namespace Tylerland.Office
             if (_isMonitorOpen) return;
 
             HandleKeyboardInput();
-            HandleEdgePanInput();
+            // Mouse direction control removed per design: turning view is strictly keyboard (A/D/W/S/Arrows)
             ProcessBufferedInput();
         }
 
