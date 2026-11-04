@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
   <title>Tylerland — 100% 2D Hand-Drawn Art Asset Roadmap</title>
@@ -384,10 +387,10 @@ const nodes = [
   },
   {
     id: 'wall_buttons', cat: 'office', tier: 'Interactive Prop', sec: '§4.1',
-    title: 'Near-Door Button Panels',
-    desc: 'Physical wall panels beside each door frame for point-and-click mouse controls.',
-    specs: 'Canvas: 160×240 px (per panel)\nDoor States: Open (Green) / Closed (Red) / Jammed\nLight States: Off (Gray) / On (Yellow)\nFile: spr_door_panel_buttons.png',
-    rules: 'Mounted beside every door frame for mouse control.\nBig industrial slam button for Door and toggle switch for Flashlight.',
+    title: 'Near-Door Physical Button Panels',
+    desc: 'Physical 2D/3D in-world interactive objects mounted directly to the right of each doorway (NOT screen UI).',
+    specs: 'Mounting: Directly to the right of all 4 doors (+1.35m offset)\nWHITE Button for LIGHT (Top): Off-White / Glowing Warm White\nRED Button for DOOR (Bottom): Dark Crimson / Vivid Alarm Red\nFiles: spr_door_button_backplate.png, spr_button_light_on/off.png, spr_button_door_open/closed.png',
+    rules: 'No screen UI buttons! Player looks around with keyboard and clicks physical buttons with mouse.\nWhite button toggles hallway blindspot light; Red button toggles security door shutter.',
     x: 80, y: 1120
   },
   {

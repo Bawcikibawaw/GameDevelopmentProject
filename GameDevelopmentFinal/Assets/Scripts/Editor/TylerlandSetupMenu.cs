@@ -559,6 +559,9 @@ namespace Tylerland.Editor
                 };
             }
 
+            // Create physical in-world Door & Light button panels mounted to the right of each doorway
+            Tylerland.Office.DoorWallButtonPanel.EnsureAllFourButtonPanelsExist(sprites2DRoot.transform);
+
             if (artMgr != null)
             {
                 var flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;

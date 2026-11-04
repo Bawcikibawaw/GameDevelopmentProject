@@ -251,6 +251,9 @@ namespace Tylerland.Office
                 slot.corridorSpriteRenderer.sortingOrder = 0;
             }
 
+            // Ensure the 4 physical in-world door and light button panels exist to the right of each doorway
+            DoorWallButtonPanel.EnsureAllFourButtonPanelsExist(layerRoot);
+
             // Hide any stray legacy 3D MeshRenderers in the office environment
             if (root != null)
             {

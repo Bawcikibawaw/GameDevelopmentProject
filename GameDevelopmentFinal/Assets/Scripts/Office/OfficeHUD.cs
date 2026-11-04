@@ -446,58 +446,9 @@ namespace Tylerland.Office
             }
 
             int facingIdx = PlayerViewController.HasInstance ? (int)PlayerViewController.Instance.CurrentDirection : 1;
-            var door = DoorSystemManager.HasInstance ? DoorSystemManager.Instance.GetDoor(facingIdx) : null;
 
-            // 1. SPECIFIC PHYSICAL WALL BUTTONS MOUNTED ON THE RIGHT SIDE OF THIS DOOR
-            // White button for LIGHT, Red button for DOOR
-            float centerX = screenW * 0.5f;
-            float doorHalfWidth = screenH * 0.22f; // matching doorway opening
-            float panelX = centerX + doorHalfWidth + 16f;
-            float panelY = screenH * 0.36f;
-            float panelW = 100f;
-            float panelH = 162f;
-
-            Rect plateRect = new Rect(panelX, panelY, panelW, panelH);
-            GUI.color = new Color(0.12f, 0.13f, 0.17f, 0.96f);
-            GUI.Box(plateRect, "");
-            GUI.color = Color.white;
-
-            bool isClosed = door != null && door.IsClosed;
-            bool isLightOn = door != null && door.IsLightOn;
-
-            // --- WHITE BUTTON FOR LIGHT (Top) ---
-            Rect lightRect = new Rect(panelX + 8, panelY + 10, panelW - 16, 64);
-            GUI.backgroundColor = isLightOn ? new Color(1.0f, 1.0f, 1.0f, 1.0f) : new Color(0.88f, 0.88f, 0.91f, 1.0f);
-            string lightStateTag = isLightOn ? "<color=#008800>● ON</color>" : "<color=#666666>○ OFF</color>";
-            string lightLabel = $"<b><color=#111111>LIGHT</color></b>\n<size=10>{lightStateTag}\n['F']</size>";
-
-            if (GUI.Button(lightRect, lightLabel))
-            {
-                if (DoorSystemManager.HasInstance)
-                {
-                    DoorSystemManager.Instance.ToggleDoorLight(facingIdx);
-                }
-            }
-
-            // --- RED BUTTON FOR DOOR (Bottom) ---
-            Rect doorRect = new Rect(panelX + 8, panelY + 86, panelW - 16, 64);
-            GUI.backgroundColor = isClosed ? new Color(0.92f, 0.18f, 0.18f, 1.0f) : new Color(0.68f, 0.10f, 0.10f, 1.0f);
-
-            string doorStateTag;
-            if (door != null && door.IsBroken) doorStateTag = "<color=#ffff00>BROKEN</color>";
-            else if (door != null && door.IsLockedOut) doorStateTag = "<color=#ffaa00>LOCKOUT</color>";
-            else doorStateTag = isClosed ? "<color=#ffffff>● CLOSED</color>" : "<color=#ffcccc>○ OPEN</color>";
-
-            string doorLabel = $"<b><color=#ffffff>DOOR</color></b>\n<size=10>{doorStateTag}\n['E']</size>";
-
-            if (GUI.Button(doorRect, doorLabel))
-            {
-                if (DoorSystemManager.HasInstance)
-                {
-                    DoorSystemManager.Instance.ToggleDoor(facingIdx);
-                }
-            }
-            GUI.backgroundColor = Color.white;
+            // Door and Light controls are physical in-world GameObjects mounted to the right of each doorway!
+            // (WHITE button for Light, RED button for Door). Screen UI buttons have been removed.
 
             // 2. FIXED COMPUTER ON TABLE (ON TYLER ANIMATRONIC SIDE - Center view)
             // Placed at bottom-right of the Tyler wall, leaving the central doorway (X=0) 100% unobstructed!

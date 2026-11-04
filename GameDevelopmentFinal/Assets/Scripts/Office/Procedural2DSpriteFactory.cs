@@ -341,5 +341,207 @@ namespace Tylerland.Office
             _cache[key] = sprite;
             return sprite;
         }
+
+        #region Wall Mounted Physical Door & Light Buttons
+        public static Sprite GetOrCreateButtonPlateSprite()
+        {
+            string key = "button_plate_industrial";
+            if (_cache.TryGetValue(key, out var cached) && cached != null) return cached;
+
+            int w = 128;
+            int h = 256;
+            Texture2D tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Bilinear;
+            tex.wrapMode = TextureWrapMode.Clamp;
+
+            Color bgDark = new Color(0.12f, 0.14f, 0.18f, 1f);
+            Color bgFace = new Color(0.18f, 0.20f, 0.25f, 1f);
+            Color border = new Color(0.35f, 0.40f, 0.48f, 1f);
+            Color hazardYellow = new Color(0.85f, 0.70f, 0.15f, 1f);
+            Color hazardBlack = new Color(0.10f, 0.10f, 0.12f, 1f);
+            Color boltColor = new Color(0.65f, 0.70f, 0.78f, 1f);
+
+            for (int y = 0; y < h; y++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    if (x < 4 || x >= w - 4 || y < 4 || y >= h - 4)
+                    {
+                        tex.SetPixel(x, y, bgDark);
+                        continue;
+                    }
+                    if (x == 4 || x == w - 5 || y == 4 || y == h - 5)
+                    {
+                        tex.SetPixel(x, y, border);
+                        continue;
+                    }
+                    if ((y >= 5 && y <= 22) || (y >= 233 && y <= 250))
+                    {
+                        bool isStripe = ((x + y) / 8) % 2 == 0;
+                        tex.SetPixel(x, y, isStripe ? hazardYellow : hazardBlack);
+                        continue;
+                    }
+                    if (y >= 126 && y <= 129)
+                    {
+                        tex.SetPixel(x, y, bgDark);
+                        continue;
+                    }
+                    bool nearCorner = (x <= 14 || x >= w - 15) && (y <= 34 || y >= h - 35);
+                    if (nearCorner)
+                    {
+                        int bx = x <= 14 ? 10 : w - 11;
+                        int by = y <= 34 ? 14 : h - 15;
+                        float dist = Vector2.Distance(new Vector2(x, y), new Vector2(bx, by));
+                        if (dist <= 3.5f)
+                        {
+                            tex.SetPixel(x, y, dist <= 1.5f ? Color.white : boltColor);
+                            continue;
+                        }
+                    }
+                    float noise = Mathf.PerlinNoise(x * 0.12f, y * 0.05f) * 0.08f;
+                    tex.SetPixel(x, y, bgFace + new Color(noise, noise, noise, 0f));
+                }
+            }
+
+            tex.Apply();
+            var sprite = Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 300f);
+            sprite.name = "spr_door_button_backplate";
+            _cache[key] = sprite;
+            return sprite;
+        }
+
+        public static Sprite GetOrCreateLightButtonSprite(bool lit)
+        {
+            string key = $"button_light_{lit}";
+            if (_cache.TryGetValue(key, out var cached) && cached != null) return cached;
+
+            int w = 112;
+            int h = 92;
+            Texture2D tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Bilinear;
+            tex.wrapMode = TextureWrapMode.Clamp;
+
+            Color bodyBase = lit ? new Color(1.0f, 1.0f, 0.92f, 1f) : new Color(0.90f, 0.91f, 0.94f, 1f);
+            Color bodyBorder = lit ? new Color(1.0f, 0.90f, 0.40f, 1f) : new Color(0.58f, 0.62f, 0.70f, 1f);
+            Color textCol = lit ? new Color(0.10f, 0.12f, 0.05f, 1f) : new Color(0.12f, 0.14f, 0.18f, 1f);
+            Color glowGlow = new Color(1.0f, 0.96f, 0.50f, 1f);
+
+            for (int y = 0; y < h; y++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    if (x < 3 || x >= w - 3 || y < 3 || y >= h - 3)
+                    {
+                        tex.SetPixel(x, y, new Color(0.15f, 0.17f, 0.22f, 1f));
+                        continue;
+                    }
+                    if (x <= 5 || x >= w - 6 || y <= 5 || y >= h - 6)
+                    {
+                        tex.SetPixel(x, y, bodyBorder);
+                        continue;
+                    }
+                    float distLamp = Vector2.Distance(new Vector2(x, y), new Vector2(w * 0.5f, h - 18f));
+                    if (distLamp <= 7.0f)
+                    {
+                        if (lit)
+                        {
+                            tex.SetPixel(x, y, distLamp <= 4.0f ? Color.white : glowGlow);
+                        }
+                        else
+                        {
+                            tex.SetPixel(x, y, distLamp <= 4.0f ? new Color(0.35f, 0.38f, 0.45f, 1f) : new Color(0.20f, 0.22f, 0.28f, 1f));
+                        }
+                        continue;
+                    }
+                    float grad = 1.0f - ((float)y / h) * 0.15f;
+                    Color pix = bodyBase * grad;
+                    pix.a = 1f;
+                    if (y >= 36 && y <= 48 && x >= 26 && x <= w - 27)
+                    {
+                        pix = Color.Lerp(pix, textCol, 0.75f);
+                    }
+                    tex.SetPixel(x, y, pix);
+                }
+            }
+
+            tex.Apply();
+            var sprite = Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 300f);
+            sprite.name = $"spr_button_light_{(lit ? "on" : "off")}";
+            _cache[key] = sprite;
+            return sprite;
+        }
+
+        public static Sprite GetOrCreateDoorButtonSprite(bool closed, bool brokenOrLocked = false)
+        {
+            string key = $"button_door_{closed}_{brokenOrLocked}";
+            if (_cache.TryGetValue(key, out var cached) && cached != null) return cached;
+
+            int w = 112;
+            int h = 92;
+            Texture2D tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Bilinear;
+            tex.wrapMode = TextureWrapMode.Clamp;
+
+            Color bodyBase;
+            Color bodyBorder;
+            Color lampCol;
+
+            if (brokenOrLocked)
+            {
+                bodyBase = new Color(0.95f, 0.55f, 0.10f, 1f);
+                bodyBorder = new Color(1.0f, 0.85f, 0.30f, 1f);
+                lampCol = new Color(1.0f, 0.90f, 0.20f, 1f);
+            }
+            else if (closed)
+            {
+                bodyBase = new Color(0.92f, 0.14f, 0.14f, 1f);
+                bodyBorder = new Color(1.0f, 0.45f, 0.45f, 1f);
+                lampCol = new Color(1.0f, 0.25f, 0.25f, 1f);
+            }
+            else
+            {
+                bodyBase = new Color(0.52f, 0.08f, 0.08f, 1f);
+                bodyBorder = new Color(0.32f, 0.04f, 0.04f, 1f);
+                lampCol = new Color(0.25f, 0.05f, 0.05f, 1f);
+            }
+
+            for (int y = 0; y < h; y++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    if (x < 3 || x >= w - 3 || y < 3 || y >= h - 3)
+                    {
+                        tex.SetPixel(x, y, new Color(0.15f, 0.17f, 0.22f, 1f));
+                        continue;
+                    }
+                    if (x <= 5 || x >= w - 6 || y <= 5 || y >= h - 6)
+                    {
+                        tex.SetPixel(x, y, bodyBorder);
+                        continue;
+                    }
+                    float distLamp = Vector2.Distance(new Vector2(x, y), new Vector2(w * 0.5f, h - 18f));
+                    if (distLamp <= 7.0f)
+                    {
+                        tex.SetPixel(x, y, distLamp <= 4.0f ? Color.white : lampCol);
+                        continue;
+                    }
+                    float grad = 1.0f - ((float)y / h) * 0.22f;
+                    Color pix = bodyBase * grad;
+                    pix.a = 1f;
+                    if (y >= 36 && y <= 48 && x >= 26 && x <= w - 27)
+                    {
+                        pix = Color.Lerp(pix, Color.white, 0.70f);
+                    }
+                    tex.SetPixel(x, y, pix);
+                }
+            }
+
+            tex.Apply();
+            var sprite = Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 300f);
+            sprite.name = $"spr_button_door_{(closed ? "closed" : "open")}_{(brokenOrLocked ? "lockout" : "normal")}";
+            _cache[key] = sprite;
+            return sprite;
+        }
+        #endregion
     }
 }
