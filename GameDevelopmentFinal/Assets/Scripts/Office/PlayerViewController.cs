@@ -56,6 +56,7 @@ namespace Tylerland.Office
         private Coroutine _rotationRoutine;
         private float _bufferedTurnInput = 0f;
         private float _bufferTimer = 0f;
+        private float _rotationWatchdogTimer = 0f;
 
         public OfficeViewDirection CurrentDirection => _currentDirection;
         public bool IsRotating => _isRotating;
@@ -87,11 +88,31 @@ namespace Tylerland.Office
 
         private void Update()
         {
+            // Auto-sync watchdog: If CameraMonitorSystem says tablet is down, ensure _isMonitorOpen is false!
+            if (_isMonitorOpen && CameraMonitorSystem.HasInstance && !CameraMonitorSystem.Instance.IsMonitorRaised && CameraMonitorSystem.Instance.AnimProgress <= 0.05f)
+            {
+                _isMonitorOpen = false;
+            }
+
             // Only process view input during active gameplay and when game is not paused
             if (!GameStateRules.IsGameplayActive(GameFlowManager.HasInstance ? GameFlowManager.Instance.CurrentState : GameState.NightActive))
                 return;
             if (Time.timeScale <= 0f)
                 return;
+
+            // Rotation watchdog: If rotation gets stuck for > 0.65s, force unstick!
+            if (_isRotating)
+            {
+                _rotationWatchdogTimer += Time.unscaledDeltaTime;
+                if (_rotationWatchdogTimer > 0.65f)
+                {
+                    ForceFinishRotation();
+                }
+            }
+            else
+            {
+                _rotationWatchdogTimer = 0f;
+            }
 
             HandleMonitorInput();
 
@@ -107,21 +128,36 @@ namespace Tylerland.Office
         private void HandleMonitorInput()
         {
             var keyboard = Keyboard.current;
-            if (keyboard == null) return;
 
-            // When monitor is open, allow closing it with Escape or Down Arrow
+            // When monitor is open: allow closing it with Space, Escape, Down Arrow, or 'S' key!
             if (_isMonitorOpen)
             {
-                if (keyboard.escapeKey.wasPressedThisFrame || keyboard.downArrowKey.wasPressedThisFrame)
+                bool close = false;
+                if (keyboard != null)
+                {
+                    if (keyboard.spaceKey.wasPressedThisFrame ||
+                        keyboard.escapeKey.wasPressedThisFrame ||
+                        keyboard.downArrowKey.wasPressedThisFrame ||
+                        keyboard.sKey.wasPressedThisFrame)
+                    {
+                        close = true;
+                    }
+                }
+#if !ENABLE_INPUT_SYSTEM || ENABLE_LEGACY_INPUT_MANAGER
+                if (Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.DownArrow) || Input.GetKeyDown(KeyCode.S))
+                {
+                    close = true;
+                }
+#endif
+                if (close)
                 {
                     SetMonitorState(false);
                 }
                 return;
             }
 
-            // Only allow direct spacebar hotkey if explicitly enabled in inspector;
-            // Otherwise, camera must be opened by clicking the computer terminal on Tyler's desk!
-            if (_allowDirectKeyboardMonitorToggle && keyboard.spaceKey.wasPressedThisFrame)
+            // When monitor is closed: direct spacebar toggle if enabled
+            if (_allowDirectKeyboardMonitorToggle && keyboard != null && keyboard.spaceKey.wasPressedThisFrame)
             {
                 ToggleMonitor();
             }
@@ -134,12 +170,12 @@ namespace Tylerland.Office
 
         public void SetMonitorState(bool open)
         {
-            if (_isMonitorOpen == open) return;
             _isMonitorOpen = open;
 
-            if (CameraMonitorSystem.HasInstance)
+            // Ensure CameraMonitorSystem is kept in sync
+            if (CameraMonitorSystem.HasInstance && CameraMonitorSystem.Instance.IsMonitorRaised != open)
             {
-                CameraMonitorSystem.Instance.SetMonitorRaised(_isMonitorOpen);
+                CameraMonitorSystem.Instance.SetMonitorRaised(open);
             }
         }
 
@@ -264,21 +300,69 @@ namespace Tylerland.Office
         private IEnumerator SmoothRotateRoutine(float targetY, float duration)
         {
             _isRotating = true;
-            Quaternion startRot = _cameraTransform.localRotation;
-            Quaternion targetRot = Quaternion.Euler(0f, targetY, 0f);
+            _rotationWatchdogTimer = 0f;
 
-            float elapsed = 0f;
-            while (elapsed < duration)
+            if (_cameraTransform == null)
             {
-                elapsed += Time.deltaTime;
-                float t = Mathf.SmoothStep(0f, 1f, elapsed / duration);
-                _cameraTransform.localRotation = Quaternion.Slerp(startRot, targetRot, t);
-                yield return null;
+                if (Camera.main != null) _cameraTransform = Camera.main.transform;
+                else _cameraTransform = transform;
             }
 
-            _cameraTransform.localRotation = targetRot;
+            Quaternion startRot = _cameraTransform != null ? _cameraTransform.localRotation : Quaternion.identity;
+            Quaternion targetRot = Quaternion.Euler(0f, targetY, 0f);
+            duration = Mathf.Max(0.06f, duration);
+
+            float elapsed = 0f;
+            try
+            {
+                while (elapsed < duration)
+                {
+                    elapsed += Time.unscaledDeltaTime;
+                    float t = Mathf.SmoothStep(0f, 1f, elapsed / duration);
+                    if (_cameraTransform != null)
+                    {
+                        _cameraTransform.localRotation = Quaternion.Slerp(startRot, targetRot, t);
+                    }
+                    yield return null;
+                }
+
+                if (_cameraTransform != null)
+                {
+                    _cameraTransform.localRotation = targetRot;
+                }
+            }
+            finally
+            {
+                _isRotating = false;
+                _rotationRoutine = null;
+                _rotationWatchdogTimer = 0f;
+            }
+        }
+
+        public void ForceFinishRotation()
+        {
+            if (_rotationRoutine != null)
+            {
+                StopCoroutine(_rotationRoutine);
+                _rotationRoutine = null;
+            }
             _isRotating = false;
-            _rotationRoutine = null;
+            _rotationWatchdogTimer = 0f;
+            float targetY = _targetYRotations[(int)_currentDirection];
+            if (_cameraTransform == null)
+            {
+                if (Camera.main != null) _cameraTransform = Camera.main.transform;
+                else _cameraTransform = transform;
+            }
+            if (_cameraTransform != null)
+            {
+                _cameraTransform.localRotation = Quaternion.Euler(0f, targetY, 0f);
+            }
+        }
+
+        private void OnDisable()
+        {
+            ForceFinishRotation();
         }
 
         public void ApplyOrientationImmediate(OfficeViewDirection direction)

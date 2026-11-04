@@ -85,9 +85,10 @@ namespace Tylerland.Office
 
         private void HandleDirectRaycastInput()
         {
-            // Do not interact if game is paused or monitor is open
-            if (PlayerViewController.HasInstance && PlayerViewController.Instance.IsMonitorOpen)
-                return;
+            // Do not interact if monitor is actively raised
+            bool isMonitorBlocking = (PlayerViewController.HasInstance && PlayerViewController.Instance.IsMonitorOpen)
+                || (CameraMonitorSystem.HasInstance && CameraMonitorSystem.Instance.IsMonitorRaised && CameraMonitorSystem.Instance.AnimProgress > 0.15f);
+            if (isMonitorBlocking) return;
 
             Vector2 mouseScreenPos = Vector2.zero;
             bool wasClicked = false;
@@ -126,8 +127,9 @@ namespace Tylerland.Office
         private void OnMouseDown()
         {
             // Unity standard click callback as robust fallback
-            if (PlayerViewController.HasInstance && PlayerViewController.Instance.IsMonitorOpen)
-                return;
+            bool isMonitorBlocking = (PlayerViewController.HasInstance && PlayerViewController.Instance.IsMonitorOpen)
+                || (CameraMonitorSystem.HasInstance && CameraMonitorSystem.Instance.IsMonitorRaised && CameraMonitorSystem.Instance.AnimProgress > 0.15f);
+            if (isMonitorBlocking) return;
 
             TriggerPress();
         }

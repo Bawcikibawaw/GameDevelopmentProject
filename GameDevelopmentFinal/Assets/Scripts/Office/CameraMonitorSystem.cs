@@ -85,6 +85,7 @@ namespace Tylerland.Office
         private float _animProgress = 0f; // 0 = down, 1 = up
 
         public bool IsMonitorRaised => _isMonitorRaised;
+        public float AnimProgress => _animProgress;
         public int CurrentCameraIndex => _currentCameraIndex;
         public float TotalNoiseLevel => Mathf.Clamp01(_baseFeedNoiseLevel + _snakeNoiseBoost);
         public bool IsStaticBursting => _isStaticBursting;
@@ -170,12 +171,13 @@ namespace Tylerland.Office
             if (immediate)
             {
                 _animProgress = raised ? 1f : 0f;
-                return;
             }
-
-            if (_monitorTransitionRoutine != null) StopCoroutine(_monitorTransitionRoutine);
-            float duration = raised ? _monitorOpenTime : _monitorCloseTime;
-            _monitorTransitionRoutine = StartCoroutine(AnimateMonitorRoutine(raised, duration));
+            else
+            {
+                if (_monitorTransitionRoutine != null) StopCoroutine(_monitorTransitionRoutine);
+                float duration = raised ? _monitorOpenTime : _monitorCloseTime;
+                _monitorTransitionRoutine = StartCoroutine(AnimateMonitorRoutine(raised, duration));
+            }
 
             if (!raised && _cameraAudioSource != null)
             {
@@ -184,6 +186,12 @@ namespace Tylerland.Office
             else if (raised)
             {
                 PlayRoomAudio(CurrentRoom);
+            }
+
+            // CRITICAL: Ensure PlayerViewController stays 100% in sync to prevent input locks!
+            if (PlayerViewController.HasInstance && PlayerViewController.Instance.IsMonitorOpen != raised)
+            {
+                PlayerViewController.Instance.SetMonitorState(raised);
             }
         }
 
@@ -299,6 +307,17 @@ namespace Tylerland.Office
 
             // 4. Bottom-Right: Interactive 4-Room Cross Map with Live Animatronic Pointers
             DrawFourRoomTabletMap(screenRect);
+
+            // 5. Always-Available Exit Bar on Bottom Bezel of Tablet
+            float exitW = Mathf.Min(440f, panelW - 40f);
+            float exitH = 40f;
+            Rect exitBarRect = new Rect((sw - exitW) * 0.5f, tabletRect.y + tabletRect.height - exitH - 6, exitW, exitH);
+            GUI.backgroundColor = new Color(0.18f, 0.45f, 0.65f, 0.98f);
+            if (GUI.Button(exitBarRect, "<b>⬇ LOWER MONITOR (RETURN TO OFFICE) [SPACE / ESC / S] ⬇</b>"))
+            {
+                SetMonitorRaised(false);
+            }
+            GUI.backgroundColor = Color.white;
         }
 
         private void DrawRoom2DArtwork(Rect screenRect, HandDrawnCameraFeed room)
