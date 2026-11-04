@@ -18,6 +18,13 @@ namespace Tylerland.Office
         [Header("HUD Visibility")]
         [SerializeField] private bool _showHUD = true;
 
+        [Header("Performance Diagnostics")]
+        [SerializeField] private bool _showFpsCounter = true;
+        private float _fpsAccumulator = 0f;
+        private int _fpsFrameCount = 0;
+        private float _fpsTimeLeft = 0.35f;
+        private float _currentFps = 60f;
+
         private void OnGUI()
         {
             if (!_showHUD) return;
@@ -26,6 +33,12 @@ namespace Tylerland.Office
             int screenH = Screen.height;
 
             var state = GameFlowManager.HasInstance ? GameFlowManager.Instance.CurrentState : GameState.NightActive;
+            // 0. TOP LEFT: Performance Diagnostics (FPS Counter)
+            if (_showFpsCounter)
+            {
+                DrawFpsCounter();
+            }
+
             if (state == GameState.Menu || state == GameState.Boot)
             {
                 DrawMainMenuScreen(screenW, screenH);
@@ -41,14 +54,14 @@ namespace Tylerland.Office
                 return;
             }
 
-            // 1. TOP RIGHT: Night & Clock Display
+            // 1. TOP RIGHT: Night & Shift Clock Display
             DrawClockWidget(screenW);
 
-            // 2. BOTTOM LEFT: Door Energy, Durability & Live Animatronic Location Pointer per Door
-            DrawDoorStatusWidget(screenH);
-
-            // 3. BOTTOM RIGHT: Special Counter-Weapons & Nightmare Status
+            // 2. TOP RIGHT (Placed directly under Shift Clock): Special Counter-Weapons UI
             DrawWeaponsWidget(screenW, screenH);
+
+            // 3. BOTTOM LEFT: Door Energy, Durability & Live Animatronic Location Pointer per Door
+            DrawDoorStatusWidget(screenH);
 
             // 4. BOTTOM CENTER: Compass / View Direction & Controls
             DrawViewCompassWidget(screenW, screenH);
@@ -63,14 +76,61 @@ namespace Tylerland.Office
             DrawDoorAndComputerMouseControls(screenW, screenH);
         }
 
+        private void UpdateFpsCounter()
+        {
+            float dt = Time.unscaledDeltaTime;
+            _fpsTimeLeft -= dt;
+            _fpsAccumulator += dt > 0f ? (1f / dt) : 0f;
+            _fpsFrameCount++;
+
+            if (_fpsTimeLeft <= 0f)
+            {
+                _currentFps = _fpsFrameCount > 0 ? (_fpsAccumulator / _fpsFrameCount) : 0f;
+                _fpsAccumulator = 0f;
+                _fpsFrameCount = 0;
+                _fpsTimeLeft = 0.30f;
+            }
+        }
+
+        /// <summary>
+        /// Top-Left live FPS counter with color coding and frame render time.
+        /// </summary>
+        private void DrawFpsCounter()
+        {
+            int w = 115;
+            int h = 32;
+            Rect rect = new Rect(20, 20, w, h);
+
+            GUI.color = new Color(0.06f, 0.08f, 0.12f, 0.90f);
+            GUI.Box(rect, "");
+            GUI.color = Color.white;
+
+            Color fpsColor = _currentFps >= 55f
+                ? new Color(0.3f, 1f, 0.4f)
+                : (_currentFps >= 30f ? new Color(1f, 0.9f, 0.2f) : new Color(1f, 0.3f, 0.3f));
+            string hex = ColorUtility.ToHtmlStringRGB(fpsColor);
+
+            GUIStyle fpsStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 12,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter,
+                richText = true
+            };
+            fpsStyle.normal.textColor = Color.white;
+
+            float ms = _currentFps > 0.01f ? (1000f / _currentFps) : 0f;
+            GUI.Label(rect, $"<b><color=#{hex}>{_currentFps:F0} FPS</color></b> <size=10><color=#888888>({ms:F1}ms)</color></size>", fpsStyle);
+        }
+
         private void DrawClockWidget(int screenW)
         {
-            int w = 215;
-            int h = 84;
+            int w = 330;
+            int h = 70;
             Rect rect = new Rect(screenW - w - 20, 20, w, h);
             GUI.Box(rect, "");
 
-            GUILayout.BeginArea(new Rect(screenW - w - 10, 24, w - 20, h - 8));
+            GUILayout.BeginArea(new Rect(screenW - w - 10, 22, w - 20, h - 6));
             int night = RunManager.HasInstance ? RunManager.Instance.CurrentNight : 1;
             string time = NightClock.HasInstance ? NightClock.Instance.GetDisplayTimeString() : "12 AM";
 
@@ -176,12 +236,15 @@ namespace Tylerland.Office
 
         private void DrawWeaponsWidget(int screenW, int screenH)
         {
-            int w = 355;
-            int h = 165;
-            Rect rect = new Rect(screenW - w - 20, screenH - h - 20, w, h);
+            // Moved to TOP RIGHT directly underneath the Shift Clock per user request
+            int w = 330;
+            int h = 145;
+            int x = screenW - w - 20;
+            int y = 96;
+            Rect rect = new Rect(x, y, w, h);
             GUI.Box(rect, "<b>SPECIAL WEAPONS ('Q' to Use | 'G' Grant All)</b>");
 
-            GUILayout.BeginArea(new Rect(screenW - w - 10, screenH - h + 5, w - 20, h - 15));
+            GUILayout.BeginArea(new Rect(x + 10, y + 22, w - 20, h - 26));
             GUILayout.Space(14);
 
             string[,] weaponTable =
@@ -487,6 +550,8 @@ namespace Tylerland.Office
 
         private void Update()
         {
+            UpdateFpsCounter();
+
             var keyboard = UnityEngine.InputSystem.Keyboard.current;
             var state = GameFlowManager.HasInstance ? GameFlowManager.Instance.CurrentState : GameState.NightActive;
 
