@@ -83,25 +83,25 @@ namespace Tylerland.Office
         [SerializeField] private float _energyMax = 100f;
         [SerializeField] private float _currentEnergy = 100f;
         [Tooltip("Energy drain rate per second while closed")]
-        [SerializeField] private float _energyDrainClosed = 2.0f;
-        [Tooltip("Energy recharge rate per second while open (0 = no recharge)")]
-        [SerializeField] private float _energyRegenOpen = 0.0f;
-        [Tooltip("Whether door energy reloads/recharges during the active night. Set to false so door charges do not load in the night (FNAF rules).")]
-        [SerializeField] private bool _rechargeDuringNight = false;
+        [SerializeField] private float _energyDrainClosed = 1.6f;
+        [Tooltip("Energy recharge rate per second while open")]
+        [SerializeField] private float _energyRegenOpen = 1.8f;
+        [Tooltip("Whether door energy reloads/recharges during the active night.")]
+        [SerializeField] private bool _rechargeDuringNight = true;
         [Tooltip("Delay in seconds before recharge begins after opening door")]
-        [SerializeField] private float _regenDelay = 2.0f;
+        [SerializeField] private float _regenDelay = 1.5f;
         [Tooltip("Minimum energy required to close door")]
         [SerializeField] private float _minEnergyToClose = 5.0f;
         [Tooltip("Lockout penalty duration when energy reaches 0")]
-        [SerializeField] private float _lockoutDuration = 4.0f;
+        [SerializeField] private float _lockoutDuration = 3.0f;
 
         [Header("Durability Parameters (Roadmap 4.3)")]
         [SerializeField] private float _durabilityMax = 100f;
         [SerializeField] private float _currentDurability = 100f;
         [Tooltip("Durability lost each time an animatronic attack is blocked at closed door")]
-        [SerializeField] private float _durabilityLossPerBlock = 10f;
+        [SerializeField] private float _durabilityLossPerBlock = 3.5f;
         [Tooltip("Wear and tear durability lost on each cycle")]
-        [SerializeField] private float _durabilityLossPerCycle = 0.5f;
+        [SerializeField] private float _durabilityLossPerCycle = 0.2f;
 
         [Header("Motion Timings")]
         [SerializeField] private float _closeDuration = 0.25f;

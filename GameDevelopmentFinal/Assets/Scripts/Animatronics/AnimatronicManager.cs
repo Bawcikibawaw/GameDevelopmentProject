@@ -95,52 +95,52 @@ namespace Tylerland.Animatronics
                 id: "tyler", displayName: "Tyler the Lion", role: "Lead singer / central mascot",
                 color: new Color(0.88f, 0.22f, 0.20f),
                 targetDoor: 1, activeFromNight: 4, passiveBeforeActive: true,
-                normalStages: 3, nightmareStages: 3, retreatStage: 0,
+                normalStages: 4, nightmareStages: 4, retreatStage: 0,
                 normalWindow: 7.0f, nightmareWindow: 6.0f,
-                extraDuraLoss: 15f, normalEnergyDrain: 0f, nightmareEnergyDrain: 12f,
-                interval: 3.5f, weapon: "Shotgun",
+                extraDuraLoss: 2.5f, normalEnergyDrain: 0f, nightmareEnergyDrain: 8f,
+                interval: 5.2f, weapon: "Shotgun",
                 behavior: CameraStallBehavior.TylerDestroysCameraInNightmare
             );
 
-            // 2. Orville the Orca (Right Door 2 / CAM 03) - Active Night 2+, 6 stages, Retreats to Stage 2 (index 1), Harpoon
+            // 2. Orville the Orca (Right Door 2 / CAM 03) - Active Night 2+, 4 stages, Harpoon
             if (_sharkConfig == null) _sharkConfig = ScriptableObject.CreateInstance<AnimatronicConfig>();
             ApplyGDDConfig(
                 _sharkConfig,
                 id: "orville", displayName: "Orville the Orca", role: "Medical attendant",
                 color: new Color(0.20f, 0.68f, 0.85f),
                 targetDoor: 2, activeFromNight: 2, passiveBeforeActive: false,
-                normalStages: 3, nightmareStages: 3, retreatStage: 0, // Stage 2 (0-based index 1)
+                normalStages: 4, nightmareStages: 4, retreatStage: 0,
                 normalWindow: 8.0f, nightmareWindow: 7.0f,
-                extraDuraLoss: 5f, normalEnergyDrain: 12f, nightmareEnergyDrain: 20f,
-                interval: 3.3f, weapon: "Harpoon",
+                extraDuraLoss: 1.5f, normalEnergyDrain: 6f, nightmareEnergyDrain: 12f,
+                interval: 5.0f, weapon: "Harpoon",
                 behavior: CameraStallBehavior.OrvilleProbabilisticAndReversal
             );
 
-            // 3. Erle the Eagle (Left Door 0 / CAM 01) - Active Night 3+, 5 stages, Electric Gun
+            // 3. Erle the Eagle (Left Door 0 / CAM 01) - Active Night 3+, 4 stages, Electric Gun
             if (_eagleConfig == null) _eagleConfig = ScriptableObject.CreateInstance<AnimatronicConfig>();
             ApplyGDDConfig(
                 _eagleConfig,
                 id: "erle", displayName: "Erle the Eagle", role: "Sheriff / security mascot",
                 color: new Color(0.92f, 0.72f, 0.18f),
                 targetDoor: 0, activeFromNight: 3, passiveBeforeActive: false,
-                normalStages: 3, nightmareStages: 3, retreatStage: 0,
+                normalStages: 4, nightmareStages: 4, retreatStage: 0,
                 normalWindow: 7.5f, nightmareWindow: 6.0f,
-                extraDuraLoss: 8f, normalEnergyDrain: 0f, nightmareEnergyDrain: 10f,
-                interval: 3.4f, weapon: "Electric Gun",
+                extraDuraLoss: 1.5f, normalEnergyDrain: 0f, nightmareEnergyDrain: 8f,
+                interval: 5.2f, weapon: "Electric Gun",
                 behavior: CameraStallBehavior.ErleScannerAndGoodBadCop
             );
 
-            // 4. Sandy the Snake (Rear Door 3 / CAM 04) - Active Night 1+, 4 stages Normal / 5 stages Nightmare, Spiked Mace
+            // 4. Sandy the Snake (Rear Door 3 / CAM 04) - Active Night 1+, 4 stages, Spiked Mace
             if (_snakeConfig == null) _snakeConfig = ScriptableObject.CreateInstance<AnimatronicConfig>();
             ApplyGDDConfig(
                 _snakeConfig,
                 id: "sandy", displayName: "Sandy the Snake", role: "Maintenance / repair mascot",
                 color: new Color(0.32f, 0.82f, 0.35f),
                 targetDoor: 3, activeFromNight: 1, passiveBeforeActive: false,
-                normalStages: 3, nightmareStages: 3, retreatStage: 0,
-                normalWindow: 8.0f, nightmareWindow: 5.5f,
-                extraDuraLoss: 10f, normalEnergyDrain: 0f, nightmareEnergyDrain: 25f,
-                interval: 3.4f, weapon: "Spiked Mace",
+                normalStages: 4, nightmareStages: 4, retreatStage: 0,
+                normalWindow: 8.0f, nightmareWindow: 6.0f,
+                extraDuraLoss: 1.5f, normalEnergyDrain: 0f, nightmareEnergyDrain: 12f,
+                interval: 4.8f, weapon: "Spiked Mace",
                 behavior: CameraStallBehavior.SandyNightmareDecoys
             );
 
@@ -153,8 +153,8 @@ namespace Tylerland.Animatronics
                 targetDoor: 1, activeFromNight: 6, passiveBeforeActive: false,
                 normalStages: 4, nightmareStages: 4, retreatStage: 1,
                 normalWindow: 6.0f, nightmareWindow: 5.5f,
-                extraDuraLoss: 15f, normalEnergyDrain: 10f, nightmareEnergyDrain: 15f,
-                interval: 3.0f, weapon: "Shotgun",
+                extraDuraLoss: 3.5f, normalEnergyDrain: 8f, nightmareEnergyDrain: 12f,
+                interval: 4.5f, weapon: "Shotgun",
                 behavior: CameraStallBehavior.None
             );
         }
@@ -249,12 +249,28 @@ namespace Tylerland.Animatronics
                 nightCfg = TylerlandBootstrap.Instance.GetConfigForNight(nightNumber);
             }
 
-            // Enforce GDD §4.1 Activation Schedule with responsive default AI levels (6..15) so animatronics move briskly:
-            // Sandy: Night 1+ | Orville: Night 2+ | Erle: Night 3+ | Tyler: Night 4+ (Passive Nights 1-3)
-            int sandyAI   = Mathf.Max(nightCfg != null ? nightCfg.snakeAILevel : 0, Mathf.Clamp(5 + nightNumber * 2, 7, 16));
-            int orvilleAI = nightNumber >= 2 ? Mathf.Max(nightCfg != null ? nightCfg.sharkAILevel : 0, Mathf.Clamp(4 + nightNumber * 2, 7, 16)) : 0;
-            int erleAI    = nightNumber >= 3 ? Mathf.Max(nightCfg != null ? nightCfg.eagleAILevel : 0, Mathf.Clamp(4 + nightNumber * 2, 8, 16)) : 0;
-            int tylerAI   = nightNumber >= 4 ? Mathf.Max(nightCfg != null ? nightCfg.tylerAILevel : 0, Mathf.Clamp(5 + nightNumber * 2, 9, 17)) : 0;
+            // Enforce balanced progressive AI progression across all 6 Nights:
+            // Night 1: Sandy(2), Tyler(Passive) -> Gentle tutorial pacing (~1-2 attacks)
+            // Night 2: Sandy(3), Orville(3), Tyler(Passive) -> Dual threats (~5-6 attacks)
+            // Night 3: Sandy(3), Orville(3), Erle(3), Tyler(Passive) -> Triple threats (~8 attacks)
+            // Night 4: Sandy(4), Orville(4), Erle(4), Tyler(4) -> All 4 active! (~15 attacks)
+            // Night 5: Sandy(6), Orville(6), Erle(6), Tyler(6) -> Climax shift (~25 attacks)
+            // Night 6: Sandy(8), Orville(8), Erle(8), Tyler(8) -> Nightmare finale (~40 attacks)
+            int sandyAI = nightCfg != null && nightCfg.snakeAILevel > 0
+                ? nightCfg.snakeAILevel
+                : (nightNumber == 1 ? 2 : (nightNumber <= 3 ? 3 : (nightNumber == 4 ? 4 : (nightNumber == 5 ? 6 : 8))));
+
+            int orvilleAI = nightNumber < 2 ? 0 : (nightCfg != null && nightCfg.sharkAILevel > 0
+                ? nightCfg.sharkAILevel
+                : (nightNumber <= 3 ? 3 : (nightNumber == 4 ? 4 : (nightNumber == 5 ? 6 : 8))));
+
+            int erleAI = nightNumber < 3 ? 0 : (nightCfg != null && nightCfg.eagleAILevel > 0
+                ? nightCfg.eagleAILevel
+                : (nightNumber == 3 ? 3 : (nightNumber == 4 ? 4 : (nightNumber == 5 ? 6 : 8))));
+
+            int tylerAI = nightNumber < 4 ? 0 : (nightCfg != null && nightCfg.tylerAILevel > 0
+                ? nightCfg.tylerAILevel
+                : (nightNumber == 4 ? 4 : (nightNumber == 5 ? 6 : 8))));
 
             // GDD §4.1.2 & §4.7 True Ending Rule: True Final Boss appears when all 4 regular animatronics are transformed into Nightmare forms in the same run
             bool allFourNightmares = RunManager.HasInstance && RunManager.Instance.State.AllFourNightmaresActive;

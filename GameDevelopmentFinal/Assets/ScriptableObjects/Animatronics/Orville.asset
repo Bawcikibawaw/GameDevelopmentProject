@@ -19,16 +19,16 @@ MonoBehaviour:
   targetDoorIndex: 2
   activeFromNight: 2
   passiveObserverBeforeActiveNight: 0
-  normalStageCount: 3
+  normalStageCount: 4
   nightmareStageCount: 3
   cameraRouteIndices: 020000000200000002000000
   retreatStageIndex: 0
-  attackWindowSeconds: 8
+  attackWindowSeconds: 8.0
   nightmareAttackWindowSeconds: 7
-  extraDurabilityLossOnBlock: 5
+  extraDurabilityLossOnBlock: 1.5
   energyDrainOnNormalBlock: 12
   energyDrainOnNightmareBlock: 20
-  baseTickInterval: 3.3
+  baseTickInterval: 5.0
   lateNightAIRamp: 3
   cameraBehavior: 2
   counterWeaponId: Harpoon

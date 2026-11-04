@@ -13,12 +13,12 @@ MonoBehaviour:
   m_Name: Night_6
   m_EditorClassIdentifier: Assembly-CSharp::Tylerland.Config.NightConfig
   nightNumber: 6
-  realSecondsPerGameHour: 90
+  realSecondsPerGameHour: 60
   nightIntroDuration: 3
-  tylerAILevel: 10
-  sharkAILevel: 10
-  eagleAILevel: 10
-  snakeAILevel: 9
+  tylerAILevel: 8
+  sharkAILevel: 8
+  eagleAILevel: 8
+  snakeAILevel: 8
   bossActive: 1
   phoneCallClip: {fileID: 0}
   phoneCallSubtitles: Hello? Hello! Welcome to your new summer job at Tylerland...

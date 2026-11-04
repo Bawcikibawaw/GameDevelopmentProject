@@ -3661,15 +3661,15 @@ MonoBehaviour:
   _isLightOn: 0
   _energyMax: 100
   _currentEnergy: 100
-  _energyDrainClosed: 2
-  _energyRegenOpen: 0
-  _rechargeDuringNight: 0
-  _regenDelay: 2
+  _energyDrainClosed: 1.6
+  _energyRegenOpen: 1.8
+  _rechargeDuringNight: 1
+  _regenDelay: 1.5
   _minEnergyToClose: 5
   _lockoutDuration: 4
   _durabilityMax: 100
   _currentDurability: 100
-  _durabilityLossPerBlock: 10
+  _durabilityLossPerBlock: 3.5
   _durabilityLossPerCycle: 0.5
   _closeDuration: 0.25
   _openDuration: 0.35
@@ -5637,15 +5637,15 @@ MonoBehaviour:
   _isLightOn: 0
   _energyMax: 100
   _currentEnergy: 100
-  _energyDrainClosed: 2
-  _energyRegenOpen: 0
-  _rechargeDuringNight: 0
-  _regenDelay: 2
+  _energyDrainClosed: 1.6
+  _energyRegenOpen: 1.8
+  _rechargeDuringNight: 1
+  _regenDelay: 1.5
   _minEnergyToClose: 5
   _lockoutDuration: 4
   _durabilityMax: 100
   _currentDurability: 100
-  _durabilityLossPerBlock: 10
+  _durabilityLossPerBlock: 3.5
   _durabilityLossPerCycle: 0.5
   _closeDuration: 0.25
   _openDuration: 0.35
@@ -9155,15 +9155,15 @@ MonoBehaviour:
   _isLightOn: 0
   _energyMax: 100
   _currentEnergy: 100
-  _energyDrainClosed: 2
-  _energyRegenOpen: 0
-  _rechargeDuringNight: 0
-  _regenDelay: 2
+  _energyDrainClosed: 1.6
+  _energyRegenOpen: 1.8
+  _rechargeDuringNight: 1
+  _regenDelay: 1.5
   _minEnergyToClose: 5
   _lockoutDuration: 4
   _durabilityMax: 100
   _currentDurability: 100
-  _durabilityLossPerBlock: 10
+  _durabilityLossPerBlock: 3.5
   _durabilityLossPerCycle: 0.5
   _closeDuration: 0.25
   _openDuration: 0.35
@@ -9805,15 +9805,15 @@ MonoBehaviour:
   _isLightOn: 0
   _energyMax: 100
   _currentEnergy: 100
-  _energyDrainClosed: 2
-  _energyRegenOpen: 0
-  _rechargeDuringNight: 0
-  _regenDelay: 2
+  _energyDrainClosed: 1.6
+  _energyRegenOpen: 1.8
+  _rechargeDuringNight: 1
+  _regenDelay: 1.5
   _minEnergyToClose: 5
   _lockoutDuration: 4
   _durabilityMax: 100
   _currentDurability: 100
-  _durabilityLossPerBlock: 10
+  _durabilityLossPerBlock: 3.5
   _durabilityLossPerCycle: 0.5
   _closeDuration: 0.25
   _openDuration: 0.35

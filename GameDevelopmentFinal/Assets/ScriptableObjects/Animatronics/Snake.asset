@@ -19,16 +19,16 @@ MonoBehaviour:
   targetDoorIndex: 3
   activeFromNight: 4
   passiveObserverBeforeActiveNight: 1
-  normalStageCount: 3
+  normalStageCount: 4
   nightmareStageCount: 3
   cameraRouteIndices: 030000000300000003000000
   retreatStageIndex: 0
-  attackWindowSeconds: 4.2
+  attackWindowSeconds: 8.0
   nightmareAttackWindowSeconds: 10
-  extraDurabilityLossOnBlock: 5
+  extraDurabilityLossOnBlock: 1.5
   energyDrainOnNormalBlock: 0
   energyDrainOnNightmareBlock: 0
-  baseTickInterval: 5.1
+  baseTickInterval: 4.8
   lateNightAIRamp: 3
   cameraBehavior: 3
   counterWeaponId: Prod

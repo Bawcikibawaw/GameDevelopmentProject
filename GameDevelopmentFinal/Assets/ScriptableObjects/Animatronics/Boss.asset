@@ -23,12 +23,12 @@ MonoBehaviour:
   nightmareStageCount: 4
   cameraRouteIndices: 010000000100000001000000
   retreatStageIndex: 1
-  attackWindowSeconds: 6
+  attackWindowSeconds: 6.0
   nightmareAttackWindowSeconds: 5.5
-  extraDurabilityLossOnBlock: 15
+  extraDurabilityLossOnBlock: 3.5
   energyDrainOnNormalBlock: 10
   energyDrainOnNightmareBlock: 15
-  baseTickInterval: 3
+  baseTickInterval: 4.5
   lateNightAIRamp: 3
   cameraBehavior: 0
   counterWeaponId: Shotgun
