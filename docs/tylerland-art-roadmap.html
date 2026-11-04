@@ -420,7 +420,8 @@ const nodes = [
     id: 'cam_erle', cat: 'cameras', tier: 'Surveillance Feed', sec: '§4.2',
     title: 'CAM 01: Sheriff Station (Erle)',
     desc: 'Left room. Fixed position per phase (no creeping to lens). When damaged, form & location change!',
-    specs: 'Canvas: 1920×1080 px\nFixed Anchor Spots per Phase\nFile: spr_cam01_erle_stg0..3.png',
+    specs: 'Canvas: 1920×1080 px\nFixed Anchor Spots per Phase\n3 Camera Room Spots (Pos 1: Desk, Pos 2: Cell, Pos 3: Archway)
+Normal: 3 PNGs | Nightmare: 3 PNGs',
     rules: 'RULE: NO ZOOMING TOWARDS CAMERA! Sprites remain in fixed anchor positions in every phase (e.g. Spot 1: desk perch, Spot 2: doorway arch, Empty: gone to door).\nWhen damaged, form changes AND location changes (relocates)!',
     x: 430, y: 70
   },
@@ -428,7 +429,8 @@ const nodes = [
     id: 'cam_tyler', cat: 'cameras', tier: 'Surveillance Feed', sec: '§4.2',
     title: 'CAM 02: Main Stage (Tyler)',
     desc: 'Center room. Fixed position per phase. Animatronics do NOT advance by getting closer to camera.',
-    specs: 'Canvas: 1920×1080 px\nFixed Anchor Spots per Phase\nFile: spr_cam02_tyler_stg0..3.png',
+    specs: 'Canvas: 1920×1080 px\nFixed Anchor Spots per Phase\n3 Camera Room Spots (Pos 1: Mic, Pos 2: Curtain, Pos 3: Arch)
+Normal: 3 PNGs | Nightmare: 3 PNGs',
     rules: 'RULE: NO ZOOMING TOWARDS CAMERA! Tyler is in fixed positions per phase (Spot 1: stage left, Spot 2: backstage door, Empty: gone).\nWhen damaged by shotgun, form transforms to Nightmare AND location relocates!',
     x: 430, y: 280
   },
@@ -444,7 +446,8 @@ const nodes = [
     id: 'cam_orville', cat: 'cameras', tier: 'Surveillance Feed', sec: '§4.2',
     title: 'CAM 03: Medical Bay (Orville)',
     desc: 'Right room. Fixed position in tank per phase. Watching CAM 03 advances location between fixed spots.',
-    specs: 'Canvas: 1920×1080 px\nFixed Anchor Spots per Phase\nFile: spr_cam03_orville_stg0..3.png',
+    specs: 'Canvas: 1920×1080 px\nFixed Anchor Spots per Phase\n3 Camera Room Spots (Pos 1: Tank, Pos 2: Monitors, Pos 3: Window)
+Normal: 3 PNGs | Nightmare: 3 PNGs',
     rules: 'RULE: NO ZOOMING TOWARDS CAMERA! Orville stays in designated fixed tank spots (Spot 1: submerged center, Spot 2: pool deck, Empty: gone to right door).\nWhen damaged by harpoon, form changes to Nightmare AND location relocates!',
     x: 430, y: 700
   },
@@ -452,7 +455,8 @@ const nodes = [
     id: 'cam_sandy', cat: 'cameras', tier: 'Surveillance Feed', sec: '§4.2',
     title: 'CAM 04: Ball Pit (Sandy)',
     desc: 'Rear room. Fixed positions per phase (pipes, pit). When damaged, form & location change.',
-    specs: 'Canvas: 1920×1080 px\nFixed Anchor Spots per Phase\nFile: spr_cam04_sandy_stg0..4.png',
+    specs: 'Canvas: 1920×1080 px\nFixed Anchor Spots per Phase\n3 Camera Room Spots (Pos 1: Pipe, Pos 2: Breaker, Pos 3: Tunnel)
+Normal: 3 PNGs | Nightmare: 3 PNGs',
     rules: 'RULE: NO ZOOMING TOWARDS CAMERA! Sandy occupies fixed spots (Spot 1: ceiling pipes, Spot 2: ball pit corner, Empty: gone).\nWhen damaged by mace, form changes to Nightmare AND location relocates!',
     x: 430, y: 910
   },
@@ -478,7 +482,7 @@ const nodes = [
     id: 'tyler_blindspot', cat: 'animatronic', tier: 'Doorway Threat', sec: '§5.2',
     title: 'Tyler: Doorway Blindspot',
     desc: 'Fixed doorway position. When damaged, form changes to Nightmare AND location relocates!',
-    specs: 'Canvas: 700×1000 px (Fixed Anchor)\n5 Variations (Normal to Nightmare)\nPPU: 100 | File: spr_tyler_blindspot_0..4.png',
+    specs: 'Canvas: 700×1000 px (Position 4: Doorway corridor)\nTotal for Tyler: 4 Normal + 4 Nightmare = 8 Illustrations\nFile: spr_door_tyler_pos4_norm / nm.png',
     rules: 'Fixed anchor spot in doorway.\nWhen hit by Shotgun: Form changes (head casing shattered, red eyes) AND location immediately changes (relocates back to room Stage 0)!',
     x: 780, y: 70
   },
@@ -486,7 +490,7 @@ const nodes = [
     id: 'orville_blindspot', cat: 'animatronic', tier: 'Doorway Threat', sec: '§5.2',
     title: 'Orville: Doorway Blindspot',
     desc: 'Fixed doorway position. When damaged, form changes to Nightmare AND location relocates!',
-    specs: 'Canvas: 700×1000 px (Fixed Anchor)\n5 Variations\nPPU: 100 | File: spr_orville_blindspot_0..4.png',
+    specs: 'Canvas: 700×1000 px (Position 4: Doorway corridor)\nTotal for Orville: 4 Normal + 4 Nightmare = 8 Illustrations\nFile: spr_door_orville_pos4_norm / nm.png',
     rules: 'Fixed anchor spot outside Right door.\nWhen hit by Harpoon: Form changes (needle teeth, bioluminescent veins) AND location immediately changes (relocates back to pool Stage 0)!',
     x: 780, y: 280
   },
@@ -494,7 +498,7 @@ const nodes = [
     id: 'sandy_blindspot', cat: 'animatronic', tier: 'Doorway Threat', sec: '§5.3',
     title: 'Sandy: Doorway Blindspot',
     desc: 'Fixed doorway position. When damaged, form changes to Nightmare AND location relocates!',
-    specs: 'Canvas: 700×1000 px (Fixed Anchor)\n5 Variations\nPPU: 100 | File: spr_sandy_blindspot_0..4.png',
+    specs: 'Canvas: 700×1000 px (Position 4: Doorway corridor)\nTotal for Sandy: 4 Normal + 4 Nightmare = 8 Illustrations\nFile: spr_door_sandy_pos4_norm / nm.png',
     rules: 'Fixed anchor spot outside Rear door.\nWhen hit by Spiked Mace: Form changes (split cobra jaw, fangs) AND location immediately changes (relocates back to Stage 0)!',
     x: 780, y: 490
   },
@@ -502,7 +506,7 @@ const nodes = [
     id: 'erle_blindspot', cat: 'animatronic', tier: 'Doorway Threat', sec: '§5.2',
     title: 'Erle: Doorway Blindspot',
     desc: 'Fixed doorway position. When damaged, form changes to Nightmare AND location relocates!',
-    specs: 'Canvas: 700×1000 px (Fixed Anchor)\n6 Variations (Cop modes + Dmg)\nPPU: 100 | File: spr_erle_blindspot_0..5.png',
+    specs: 'Canvas: 700×1000 px (Position 4: Doorway corridor)\nTotal for Erle: 4 Normal + 4 Nightmare = 8 Illustrations\nFile: spr_door_erle_pos4_norm / nm.png',
     rules: 'Fixed anchor spot outside Left door.\nWhen hit by Electric Gun: Form changes (skeletal wings, razor talons) AND location immediately changes (relocates back to Stage 0)!',
     x: 780, y: 700
   },

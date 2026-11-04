@@ -4,9 +4,22 @@
 > *Tylerland: Animal Kingdom* is a **purely 2D hand-drawn horror game** (zero 3D models or primitive meshes). The visual style blends grungy 90s animatronic horror, hand-inked comic textures, gritty surveillance CRT monitors, and stark lighting contrast (dark shadows vs. harsh flashlight beams).
 
 > [!IMPORTANT]
-> **🚨 CRITICAL DESIGN RULE: FIXED POSITIONS PER PHASE & DAMAGE RELOCATION**
-> 1. **NO CAMERA-ZOOMING OR CREEPING TO THE LENS**: Animatronics do **NOT** show they are coming by getting larger or creeping closer to the camera lens. In every room phase, the animatronic sprite sits in a **fixed, designated anchor position** (e.g., Spot A $\rightarrow$ Spot B $\rightarrow$ Doorway).
-> 2. **DAMAGE CHANGES FORM AND LOCATION**: When an animatronic is hit by a counter-weapon or takes damage, **both its FORM changes** (cracked chassis, exposed skull, Nightmare transformation) **AND its LOCATION changes** (it immediately relocates from the doorway back to its retreat room stage)!
+> **🚨 CRITICAL DESIGN RULE: EXACTLY 4 VISIBLE POSITIONS (8 ILLUSTRATIONS PER ANIMATRONIC)**
+> Every animatronic has **exactly 4 visible positions in the game**:
+> 1. **Position 1 (Camera Room Anchor A)**: Idle / starting pose on its dedicated camera feed.
+> 2. **Position 2 (Camera Room Anchor B)**: Moved / active pose on that same camera feed.
+> 3. **Position 3 (Camera Room Anchor C)**: Near exit / alert pose on that same camera feed.
+> * **Between-State (Corridor Transition)**: The animatronic has exited its room. The camera feed displays the **Empty Room background**, while footsteps/movement audio sounds in the hallway.
+> 4. **Position 4 (Office Doorway / Corridor Blindspot)**: Standing right outside your office door in the corridor; revealed when the player shines the flashlight ('F').
+>
+> 🎯 **Total Illustrations Required per Character:**
+> * **4 Illustrations for Normal Form** (Pos 1, Pos 2, Pos 3 in room + Pos 4 at Doorway)
+> * **4 Illustrations for Nightmare Form** (Pos 1, Pos 2, Pos 3 in room + Pos 4 at Doorway)
+> * **= 8 Illustrations in total per animatronic!**
+> * **Total across all 4 animatronics (Tyler, Orville, Sandy, Erle) = 32 character illustrations!**
+>
+> 🚫 **NO CAMERA ZOOMING OR CREEPING**: Animatronics **never** zoom or scale larger to simulate approaching the camera. Sprites remain in fixed discrete anchor positions in every phase!
+> 💥 **DAMAGE RELOCATION**: When hit with a special weapon, the animatronic executes both a **Form Change** (switches to Nightmare/damaged sprite) **AND a Location Change** (instantly relocates from the office door back to its room anchor)!
 
 ---
 
@@ -69,17 +82,73 @@ Behind every wall cutout sits a dark corridor backdrop. When the shutter drops, 
 
 ## 🦁 Roadmap Section 5: Animatronics, Blindspots & Jumpscares
 
-### 5.1-5.6 The 4 Animatronics (Doorway Blindspots & Stages)
+### 5.1-5.6 The Complete 8-Illustration Breakdown per Animatronic
 
-When animatronics reach your door, they stand right in the doorway cutout in front of the corridor backdrop.
+Every animatronic requires **exactly 4 illustrations for its Normal form** and **4 illustrations for its Nightmare form** (= 8 illustrations per character, 32 total).
 
-| Section | Character & Role | Blindspot Door Sprites (700 × 1000 px) | Nightmare Transformation | Special Weapon Counter |
-| :--- | :--- | :--- | :--- | :--- |
-| **§5.2 / §5.6** | **Tyler the Lion** <br>*(Center Door / CAM 02)* | • Normal Silhouette (Dark) <br>• Normal Illuminated (Full detail) <br>• Damage Lvl 1, 2, 3 (Jaw dislocated, frame exposed) | **Nightmare Tyler**: Shattered head casing, demonic red pupils, elongated fangs, exposed hydraulic spine. | **Shotgun** (Triggers Nightmare & camera destruction) |
-| **§5.2 / §5.6** | **Orville the Orca** <br>*(Right Door / CAM 03)* | • Normal Silhouette (Dark) <br>• Normal Illuminated (Full detail) <br>• Damage Lvl 1, 2, 3 (Cracked dorsal fin, bleeding blowhole) | **Nightmare Orville**: Triple row of needle teeth, pitch-black oil tears, bioluminescent veins, towering bulk. | **Pneumatic Harpoon** (Impales chassis) |
-| **§5.2 / §5.3** | **Sandy the Snake** <br>*(Rear Door / CAM 04)* | • Normal Silhouette (Dark) <br>• Normal Illuminated (Full detail) <br>• Damage Lvl 1, 2, 3 (Peeling rubber skin, exposed wiring) <br>• **Shed Decoy Shell** (Empty hollow skin) | **Nightmare Sandy**: Split serpentine jaws, multiple glowing eyes, barbed metallic scales, hooded cobra crest. | **Spiked Mace** (Crushes serpentine skull) |
-| **§5.2 / §5.6** | **Erle the Eagle** <br>*(Left Door / CAM 01)* | • Good Cop Mode (Calm posture) <br>• Bad Cop Mode (Aggressive hunched posture) <br>• Damage Lvl 1, 2, 3 (Broken beak, missing eye) | **Nightmare Erle**: Razor talons extending 1 meter, shredded feathers revealing skeletal steel wings, cracked sheriff badge embedded in chest. | **Electric Stun Gun** (Overloads battery capacitors) |
-| **§5.7** | **True Final Boss (Night 6)** | • Multi-Door Stalker Sprites <br>• 3 Combat Phases | **Amalgamation**: Eldritch fusion of Lion mane, Orca jaw, Eagle talons, and Snake coils. | Requires surviving all 4 Nightmares in one run. |
+#### 1. Tyler the Lion (Center Door / CAM 02) — 8 Illustrations
+| State | Form | Image File Name | Description & Anchor Spot |
+| :--- | :--- | :--- | :--- |
+| **Pos 1 (Camera)** | Normal | `spr_cam02_tyler_pos1_norm.png` | Main Stage center microphone stand (Idle, performing pose). |
+| **Pos 2 (Camera)** | Normal | `spr_cam02_tyler_pos2_norm.png` | Stage right curtain corner under spotlight (Active, looking towards camera). |
+| **Pos 3 (Camera)** | Normal | `spr_cam02_tyler_pos3_norm.png` | Stage left near the exit archway (Turning to leave the stage). |
+| *Between State* | — | *CAM 02 shows Empty Stage* | Heavy metallic footstep audio echoes down the Center Corridor. |
+| **Pos 4 (Doorway)** | Normal | `spr_door_tyler_pos4_norm.png` | Standing in Center Doorway corridor; visible when illuminated with Flashlight ('F'). |
+| **Pos 1 (Camera)** | Nightmare | `spr_cam02_tyler_pos1_nm.png` | Main Stage center microphone with shattered skull, exposed teeth & red eyes. |
+| **Pos 2 (Camera)** | Nightmare | `spr_cam02_tyler_pos2_nm.png` | Stage right curtain, hunched predator stance, glowing optics. |
+| **Pos 3 (Camera)** | Nightmare | `spr_cam02_tyler_pos3_nm.png` | Exit archway, claw reaching out into darkness before smashing CAM 02. |
+| **Pos 4 (Doorway)** | Nightmare | `spr_door_tyler_pos4_nm.png` | Nightmare Tyler looming in Center Doorway corridor; illuminated by Flashlight ('F'). |
+
+#### 2. Orville the Orca (Right Door / CAM 03) — 8 Illustrations
+| State | Form | Image File Name | Description & Anchor Spot |
+| :--- | :--- | :--- | :--- |
+| **Pos 1 (Camera)** | Normal | `spr_cam03_orville_pos1_norm.png` | Medical Bay gurney / recovery tank (Submerged, dorsal fin visible). |
+| **Pos 2 (Camera)** | Normal | `spr_cam03_orville_pos2_norm.png` | Standing beside heart monitors / pool edge (Water dripping from rubber hide). |
+| **Pos 3 (Camera)** | Normal | `spr_cam03_orville_pos3_norm.png` | Medical corridor viewing window (Hunched, ready to enter hallway). |
+| *Between State* | — | *CAM 03 shows Empty Medical Bay* | Wet splashing & mechanical clanking heard in Right Corridor. |
+| **Pos 4 (Doorway)** | Normal | `spr_door_orville_pos4_norm.png` | Looming in Right Doorway corridor; visible when illuminated with Flashlight ('F'). |
+| **Pos 1 (Camera)** | Nightmare | `spr_cam03_orville_pos1_nm.png` | Tank filled with black oily water, triple row of needle teeth visible. |
+| **Pos 2 (Camera)** | Nightmare | `spr_cam03_orville_pos2_nm.png` | Beside shattered monitors, black sludge weeping from blowhole. |
+| **Pos 3 (Camera)** | Nightmare | `spr_cam03_orville_pos3_nm.png` | Viewing window, bioluminescent veins pulsing as he enters hallway. |
+| **Pos 4 (Doorway)** | Nightmare | `spr_door_orville_pos4_nm.png` | Nightmare Orville filling the Right Doorway corridor; illuminated by Flashlight ('F'). |
+
+#### 3. Sandy the Snake (Rear Door / CAM 04) — 8 Illustrations
+| State | Form | Image File Name | Description & Anchor Spot |
+| :--- | :--- | :--- | :--- |
+| **Pos 1 (Camera)** | Normal | `spr_cam04_sandy_pos1_norm.png` | Maintenance room ceiling pipes (Coiled overhead, eyes gleaming). |
+| **Pos 2 (Camera)** | Normal | `spr_cam04_sandy_pos2_norm.png` | Descending over electrical breaker box (Flickering sparks on scales). |
+| **Pos 3 (Camera)** | Normal | `spr_cam04_sandy_pos3_norm.png` | Slithering on floor near maintenance tunnel exit (Heading into corridor). |
+| *Between State* | — | *CAM 04 shows Empty Maintenance* | Low scraping scales & vent rattle heard in Rear Corridor. |
+| **Pos 4 (Doorway)** | Normal | `spr_door_sandy_pos4_norm.png` | Rearing up in Rear Doorway corridor; visible when illuminated with Flashlight ('F'). |
+| **Pos 1 (Camera)** | Nightmare | `spr_cam04_sandy_pos1_nm.png` | Coiled in torn pipes, flared cobra hood with barbed metallic scales. |
+| **Pos 2 (Camera)** | Nightmare | `spr_cam04_sandy_pos2_nm.png` | Hanging over smashed breaker, split jaws opening wide. |
+| **Pos 3 (Camera)** | Nightmare | `spr_cam04_sandy_pos3_nm.png` | Slithering near tunnel exit, leaving translucent shed skin behind! |
+| **Pos 4 (Doorway)** | Nightmare | `spr_door_sandy_pos4_nm.png` | Nightmare Sandy striking posture in Rear Doorway corridor; illuminated by Flashlight ('F'). |
+
+#### 4. Erle the Eagle (Left Door / CAM 01) — 8 Illustrations
+| State | Form | Image File Name | Description & Anchor Spot |
+| :--- | :--- | :--- | :--- |
+| **Pos 1 (Camera)** | Normal | `spr_cam01_erle_pos1_norm.png` | Security Office desk chair (Perched with star badge, scanning documents). |
+| **Pos 2 (Camera)** | Normal | `spr_cam01_erle_pos2_norm.png` | Holding onto jail cell bars (Inspecting holding cell). |
+| **Pos 3 (Camera)** | Normal | `spr_cam01_erle_pos3_norm.png` | Standing at the doorway arch threshold (Ready to patrol the corridor). |
+| *Between State* | — | *CAM 01 shows Empty Security Office* | Sharp talon clicks & radio chatter heard in Left Corridor. |
+| **Pos 4 (Doorway)** | Normal | `spr_door_erle_pos4_norm.png` | Standing upright in Left Doorway corridor; visible when illuminated with Flashlight ('F'). |
+| **Pos 1 (Camera)** | Nightmare | `spr_cam01_erle_pos1_nm.png` | Hunched on shattered desk, elongated razor talons, broken beak. |
+| **Pos 2 (Camera)** | Nightmare | `spr_cam01_erle_pos2_nm.png` | Bending jail cell bars, shredded feathers exposing metallic ribs. |
+| **Pos 3 (Camera)** | Nightmare | `spr_cam01_erle_pos3_nm.png` | Doorway threshold, skeletal steel wings spreading in the shadows. |
+| **Pos 4 (Doorway)** | Nightmare | `spr_door_erle_pos4_nm.png` | Nightmare Erle lunging in Left Doorway corridor; illuminated by Flashlight ('F'). |
+
+---
+
+### 5.7 Additional Essential Art Assets
+* **4 Empty Camera Room Backgrounds**:
+  * `spr_cam01_empty.png` (Erle's Sheriff Station without Erle)
+  * `spr_cam02_empty.png` (Tyler's Main Stage without Tyler)
+  * `spr_cam03_empty.png` (Orville's Medical Bay without Orville)
+  * `spr_cam04_empty.png` (Sandy's Maintenance Room without Sandy)
+* **CAM 02 Smashed Lens**: `spr_cam02_destroyed.png` (Shattered glass & static after Nightmare Tyler)
+* **Nightmare Sandy Shed Skin**: `spr_cam04_sandy_decoy.png` (Translucent shed skin left in CAM 04)
+* **Jumpscare Frames**: 6–8 frames per character (Normal & Nightmare) = 12–16 frames per character.
 
 ---
 

@@ -61,11 +61,11 @@ namespace Tylerland.Config
         [Header("Room Stages & Reaction Windows (GDD §4.6)")]
         [Tooltip("Number of progression stages inside their room in Normal form (Tyler=4, Orville=6, Sandy=4, Erle=5)")]
         [Range(1, 8)]
-        public int normalStageCount = 4;
+        public int normalStageCount = 3;
 
         [Tooltip("Number of progression stages inside their room in Nightmare form (Sandy increases from 4 to 5 in Nightmare form!)")]
         [Range(1, 8)]
-        public int nightmareStageCount = 4;
+        public int nightmareStageCount = 3;
 
         [Tooltip("Legacy route array kept for backward compatibility")]
         public int[] cameraRouteIndices = new int[] { 1, 1, 1, 1 };
@@ -109,10 +109,10 @@ namespace Tylerland.Config
 
         [Header("100% 2D Hand-Drawn Sprites (Normal & Nightmare)")]
         [Tooltip("2D room sprites for each stage in Normal form (Each phase has a FIXED anchor position in the room; animatronics NEVER zoom or creep closer to the camera lens)")]
-        public Sprite[] cameraStageSprites = new Sprite[4];
+        public Sprite[] cameraStageSprites = new Sprite[3];
 
         [Tooltip("2D room sprites for each stage in Nightmare / Damaged form (Fixed anchor positions per phase with damaged/nightmare form visual changes)")]
-        public Sprite[] nightmareCameraStageSprites = new Sprite[4];
+        public Sprite[] nightmareCameraStageSprites = new Sprite[3];
 
         [Tooltip("Normalized (X: 0..1, Y: 0..1) fixed anchor positions inside the camera feed for each room phase (prevents fake camera zoom/scaling; animatronic stays at fixed spots)")]
         public Vector2[] stageAnchorCoordinates = new Vector2[0];
@@ -172,44 +172,36 @@ namespace Tylerland.Config
 
             switch (cleanId)
             {
-                case "erle": // CAM 01 (Left / Sheriff)
+                case "erle": // CAM 01 (Left / Sheriff) - 3 Camera Positions
                     switch (stageIndex)
                     {
-                        case 0: return new Vector2(0.24f, 0.38f); // Desk chair
-                        case 1: return new Vector2(0.52f, 0.42f); // Jail cell bars
-                        case 2: return new Vector2(0.76f, 0.36f); // Filing cabinet
-                        case 3: return new Vector2(0.38f, 0.32f); // Bulletin board
-                        default: return new Vector2(0.82f, 0.30f); // Exit threshold
+                        case 0: return new Vector2(0.24f, 0.38f); // Pos 1: Desk chair
+                        case 1: return new Vector2(0.52f, 0.42f); // Pos 2: Jail cell bars
+                        default: return new Vector2(0.80f, 0.32f); // Pos 3: Doorway archway exit
                     }
 
-                case "tyler": // CAM 02 (Center / Main Stage)
+                case "tyler": // CAM 02 (Center / Main Stage) - 3 Camera Positions
                     switch (stageIndex)
                     {
-                        case 0: return new Vector2(0.50f, 0.38f); // Center stage microphone stand
-                        case 1: return new Vector2(0.74f, 0.36f); // Stage right curtain / spotlight
-                        case 2: return new Vector2(0.26f, 0.36f); // Stage left drum kit
-                        default: return new Vector2(0.50f, 0.28f); // Main hall exit doorway arch
+                        case 0: return new Vector2(0.50f, 0.38f); // Pos 1: Center stage microphone stand
+                        case 1: return new Vector2(0.74f, 0.36f); // Pos 2: Stage right curtain / spotlight
+                        default: return new Vector2(0.26f, 0.36f); // Pos 3: Stage left exit arch
                     }
 
-                case "orville": // CAM 03 (Right / Medical Bay)
+                case "orville": // CAM 03 (Right / Medical Bay) - 3 Camera Positions
                     switch (stageIndex)
                     {
-                        case 0: return new Vector2(0.28f, 0.40f); // Recovery tank / gurney
-                        case 1: return new Vector2(0.68f, 0.38f); // Medical monitors
-                        case 2: return new Vector2(0.48f, 0.34f); // Pool viewing window
-                        case 3: return new Vector2(0.18f, 0.32f); // Sanitization curtain
-                        case 4: return new Vector2(0.80f, 0.32f); // Supply cabinets
-                        default: return new Vector2(0.52f, 0.26f); // Corridor exit threshold
+                        case 0: return new Vector2(0.28f, 0.40f); // Pos 1: Recovery tank / gurney
+                        case 1: return new Vector2(0.68f, 0.38f); // Pos 2: Medical monitors / pool deck
+                        default: return new Vector2(0.50f, 0.30f); // Pos 3: Corridor viewing window
                     }
 
-                case "sandy": // CAM 04 (Rear / Maintenance)
+                case "sandy": // CAM 04 (Rear / Maintenance) - 3 Camera Positions
                     switch (stageIndex)
                     {
-                        case 0: return new Vector2(0.50f, 0.58f); // Coiled on overhead ceiling pipe
-                        case 1: return new Vector2(0.22f, 0.42f); // Hanging over electrical breaker
-                        case 2: return new Vector2(0.72f, 0.34f); // Slithering on floor tool chest
-                        case 3: return new Vector2(0.40f, 0.46f); // Entangled in ventilation duct
-                        default: return new Vector2(0.80f, 0.28f); // Maintenance tunnel exit
+                        case 0: return new Vector2(0.50f, 0.58f); // Pos 1: Coiled on overhead ceiling pipe
+                        case 1: return new Vector2(0.22f, 0.42f); // Pos 2: Hanging over electrical breaker
+                        default: return new Vector2(0.76f, 0.32f); // Pos 3: Slithering by tunnel exit
                     }
 
                 default:

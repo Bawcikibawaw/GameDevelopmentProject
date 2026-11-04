@@ -19,8 +19,8 @@ MonoBehaviour:
   targetDoorIndex: 0
   activeFromNight: 3
   passiveObserverBeforeActiveNight: 0
-  normalStageCount: 5
-  nightmareStageCount: 5
+  normalStageCount: 3
+  nightmareStageCount: 3
   cameraRouteIndices: 0000000000000000000000000000000000000000
   retreatStageIndex: 0
   attackWindowSeconds: 7.5
