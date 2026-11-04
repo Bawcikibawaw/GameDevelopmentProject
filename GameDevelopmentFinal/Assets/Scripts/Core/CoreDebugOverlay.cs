@@ -83,8 +83,8 @@ namespace Tylerland.Core
                 GameEvents.TriggerRunReset();
             }
 
-            // 'P' or 'Escape': Toggle Pause (when in NightActive)
-            if (keyboard.pKey.wasPressedThisFrame || keyboard.escapeKey.wasPressedThisFrame)
+            // 'P': Toggle Pause (when in NightActive). Escape is reserved for camera monitor exit!
+            if (keyboard.pKey.wasPressedThisFrame)
             {
                 if (GameFlowManager.HasInstance)
                 {

@@ -34,6 +34,13 @@ namespace Tylerland.Office
 
             if (state != GameState.NightActive) return;
 
+            // Pause Overlay Check
+            if (GameFlowManager.HasInstance && GameFlowManager.Instance.IsPaused)
+            {
+                DrawPauseMenuOverlay(screenW, screenH);
+                return;
+            }
+
             // 1. TOP RIGHT: Night & Clock Display
             DrawClockWidget(screenW);
 
@@ -712,6 +719,67 @@ namespace Tylerland.Office
             {
                 GameFlowManager.Instance.StartNightRun();
             }
+        }
+        private void DrawPauseMenuOverlay(int screenW, int screenH)
+        {
+            GUI.color = new Color(0f, 0f, 0f, 0.85f);
+            GUI.DrawTexture(new Rect(0, 0, screenW, screenH), Texture2D.whiteTexture);
+            GUI.color = Color.white;
+
+            int menuW = 420;
+            int menuH = 260;
+            Rect menuRect = new Rect((screenW - menuW) / 2f, (screenH - menuH) / 2f, menuW, menuH);
+
+            GUI.color = new Color(0.12f, 0.14f, 0.20f, 0.98f);
+            GUI.Box(menuRect, "");
+            GUI.color = Color.white;
+
+            GUIStyle titleStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 24,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter
+            };
+            titleStyle.normal.textColor = Color.white;
+            GUI.Label(new Rect(menuRect.x, menuRect.y + 20, menuW, 40), "⏸ GAME PAUSED", titleStyle);
+
+            GUIStyle subStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 12,
+                alignment = TextAnchor.MiddleCenter
+            };
+            subStyle.normal.textColor = new Color(0.7f, 0.7f, 0.7f);
+            GUI.Label(new Rect(menuRect.x, menuRect.y + 60, menuW, 25), "Surveillance Paused — Clock and AI Suspended", subStyle);
+
+            Rect resumeRect = new Rect(menuRect.x + 40, menuRect.y + 98, menuW - 80, 42);
+            GUI.backgroundColor = new Color(0.2f, 0.7f, 0.3f);
+            if (GUI.Button(resumeRect, "<b>▶ RESUME GAME [PRESS 'P']</b>"))
+            {
+                if (GameFlowManager.HasInstance) GameFlowManager.Instance.TogglePause();
+            }
+
+            Rect restartRect = new Rect(menuRect.x + 40, menuRect.y + 150, menuW - 80, 38);
+            GUI.backgroundColor = new Color(0.2f, 0.4f, 0.6f);
+            if (GUI.Button(restartRect, "<b>🔄 RESTART NIGHT</b>"))
+            {
+                if (GameFlowManager.HasInstance)
+                {
+                    GameFlowManager.Instance.TogglePause();
+                    StartNightGame();
+                }
+            }
+
+            Rect quitRect = new Rect(menuRect.x + 40, menuRect.y + 198, menuW - 80, 36);
+            GUI.backgroundColor = new Color(0.6f, 0.2f, 0.2f);
+            if (GUI.Button(quitRect, "<b>🚪 QUIT TO MAIN MENU</b>"))
+            {
+                if (GameFlowManager.HasInstance)
+                {
+                    GameFlowManager.Instance.TogglePause();
+                    GameFlowManager.Instance.TransitionTo(GameState.Menu);
+                }
+            }
+            GUI.backgroundColor = Color.white;
         }
     }
 }

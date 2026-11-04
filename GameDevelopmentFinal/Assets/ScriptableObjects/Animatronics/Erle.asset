@@ -14,8 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Tylerland.Config.AnimatronicConfig
   animatronicId: erle
   displayName: Erle the Eagle
-  formerRole: Sheriff / Security Mascot
-  themeColor: {r: 0.95, g: 0.75, b: 0.2, a: 1}
+  formerRole: Sheriff / security mascot
+  themeColor: {r: 0.92, g: 0.72, b: 0.18, a: 1}
   targetDoorIndex: 0
   activeFromNight: 3
   passiveObserverBeforeActiveNight: 0
@@ -23,13 +23,13 @@ MonoBehaviour:
   nightmareStageCount: 3
   cameraRouteIndices: 000000000000000000000000
   retreatStageIndex: 0
-  attackWindowSeconds: 15
-  nightmareAttackWindowSeconds: 12
+  attackWindowSeconds: 7.5
+  nightmareAttackWindowSeconds: 6
   extraDurabilityLossOnBlock: 8
   energyDrainOnNormalBlock: 0
   energyDrainOnNightmareBlock: 10
-  baseTickInterval: 4.6
-  lateNightAIRamp: 2
+  baseTickInterval: 3.4
+  lateNightAIRamp: 3
   cameraBehavior: 5
   counterWeaponId: Electric Gun
   cameraStageSprites:

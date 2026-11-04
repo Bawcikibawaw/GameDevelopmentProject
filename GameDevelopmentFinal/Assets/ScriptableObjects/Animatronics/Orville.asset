@@ -14,22 +14,22 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Tylerland.Config.AnimatronicConfig
   animatronicId: orville
   displayName: Orville the Orca
-  formerRole: Medical Attendant / The Corrupted Healer
-  themeColor: {r: 0.2, g: 0.65, b: 0.9, a: 1}
+  formerRole: Medical attendant
+  themeColor: {r: 0.2, g: 0.68, b: 0.85, a: 1}
   targetDoorIndex: 2
   activeFromNight: 2
   passiveObserverBeforeActiveNight: 0
   normalStageCount: 3
   nightmareStageCount: 3
   cameraRouteIndices: 020000000200000002000000
-  retreatStageIndex: 1
-  attackWindowSeconds: 20
-  nightmareAttackWindowSeconds: 20
+  retreatStageIndex: 0
+  attackWindowSeconds: 8
+  nightmareAttackWindowSeconds: 7
   extraDurabilityLossOnBlock: 5
   energyDrainOnNormalBlock: 12
-  energyDrainOnNightmareBlock: 18
-  baseTickInterval: 4.4
-  lateNightAIRamp: 2
+  energyDrainOnNightmareBlock: 20
+  baseTickInterval: 3.3
+  lateNightAIRamp: 3
   cameraBehavior: 2
   counterWeaponId: Harpoon
   cameraStageSprites:

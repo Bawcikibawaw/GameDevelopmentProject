@@ -363,7 +363,8 @@ namespace Tylerland.Animatronics
                 unit.Initialize(unit.Config, 10, 4);
             }
 
-            while (!unit.IsAtDoorBlindspot)
+            int safety = 0;
+            while (!unit.IsAtDoorBlindspot && safety++ < 12)
             {
                 unit.AdvanceStage();
             }
