@@ -425,32 +425,19 @@ namespace Tylerland.Office
         /// </summary>
         private void DrawDoorAndComputerMouseControls(int screenW, int screenH)
         {
-            bool isMonitorOpen = PlayerViewController.HasInstance && PlayerViewController.Instance.IsMonitorOpen;
+            bool isMonitorOpen = (PlayerViewController.HasInstance && PlayerViewController.Instance.IsMonitorOpen)
+                || (CameraMonitorSystem.HasInstance && (CameraMonitorSystem.Instance.IsMonitorRaised || CameraMonitorSystem.Instance.AnimProgress > 0.05f));
 
-            // If monitor IS open, draw a prominent LOWER MONITOR / EXIT COMPUTER button
-            if (isMonitorOpen)
-            {
-                int exitW = 380;
-                int exitH = 46;
-                Rect exitRect = new Rect((screenW - exitW) * 0.5f, screenH - exitH - 12, exitW, exitH);
-                GUI.backgroundColor = new Color(0.18f, 0.45f, 0.65f, 0.96f);
-                if (GUI.Button(exitRect, "<b>⬇ LOWER MONITOR (EXIT COMPUTER) ⬇</b>"))
-                {
-                    if (PlayerViewController.HasInstance)
-                    {
-                        PlayerViewController.Instance.SetMonitorState(false);
-                    }
-                }
-                GUI.backgroundColor = Color.white;
-                return;
-            }
+            // While camera tablet is open or sliding, do not draw or capture office mouse clicks
+            if (isMonitorOpen) return;
+
+            // Debounce cooldown: prevent accidental re-open immediately after closing monitor
+            float lastLower = CameraMonitorSystem.HasInstance ? CameraMonitorSystem.Instance.LastMonitorLowerTime : -10f;
+            if (Time.unscaledTime - lastLower < 0.40f) return;
 
             int facingIdx = PlayerViewController.HasInstance ? (int)PlayerViewController.Instance.CurrentDirection : 1;
 
-            // Door and Light controls are physical in-world GameObjects mounted to the right of each doorway!
-            // (WHITE button for Light, RED button for Door). Screen UI buttons have been removed.
-
-            // 2. FIXED COMPUTER ON TABLE (ON TYLER ANIMATRONIC SIDE - Center view)
+            // FIXED COMPUTER ON TABLE (ON TYLER ANIMATRONIC SIDE - Center view)
             // Placed at bottom-right of the Tyler wall, leaving the central doorway (X=0) 100% unobstructed!
             if (facingIdx == (int)OfficeViewDirection.Center)
             {

@@ -85,9 +85,8 @@ namespace Tylerland.Office
 
         private void HandleDirectRaycastInput()
         {
-            // Do not interact if monitor is actively raised
-            bool isMonitorBlocking = (PlayerViewController.HasInstance && PlayerViewController.Instance.IsMonitorOpen)
-                || (CameraMonitorSystem.HasInstance && CameraMonitorSystem.Instance.IsMonitorRaised && CameraMonitorSystem.Instance.AnimProgress > 0.15f);
+            // Only block physical button clicks if camera monitor tablet is visibly raised over the office view
+            bool isMonitorBlocking = CameraMonitorSystem.HasInstance && CameraMonitorSystem.Instance.AnimProgress > 0.40f;
             if (isMonitorBlocking) return;
 
             Vector2 mouseScreenPos = Vector2.zero;
@@ -127,8 +126,7 @@ namespace Tylerland.Office
         private void OnMouseDown()
         {
             // Unity standard click callback as robust fallback
-            bool isMonitorBlocking = (PlayerViewController.HasInstance && PlayerViewController.Instance.IsMonitorOpen)
-                || (CameraMonitorSystem.HasInstance && CameraMonitorSystem.Instance.IsMonitorRaised && CameraMonitorSystem.Instance.AnimProgress > 0.15f);
+            bool isMonitorBlocking = CameraMonitorSystem.HasInstance && CameraMonitorSystem.Instance.AnimProgress > 0.40f;
             if (isMonitorBlocking) return;
 
             TriggerPress();

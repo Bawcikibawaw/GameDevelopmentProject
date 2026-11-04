@@ -41,16 +41,35 @@ namespace Tylerland.Office
         private void HandleDoorHotkeys()
         {
             var keyboard = Keyboard.current;
-            if (keyboard == null) return;
+            bool k1 = false, k2 = false, k3 = false, k4 = false, kE = false, kF = false;
+
+            if (keyboard != null)
+            {
+                k1 = keyboard.digit1Key.wasPressedThisFrame || keyboard.numpad1Key.wasPressedThisFrame;
+                k2 = keyboard.digit2Key.wasPressedThisFrame || keyboard.numpad2Key.wasPressedThisFrame;
+                k3 = keyboard.digit3Key.wasPressedThisFrame || keyboard.numpad3Key.wasPressedThisFrame;
+                k4 = keyboard.digit4Key.wasPressedThisFrame || keyboard.numpad4Key.wasPressedThisFrame;
+                kE = keyboard.eKey.wasPressedThisFrame;
+                kF = keyboard.fKey.wasPressedThisFrame;
+            }
+
+#if !ENABLE_INPUT_SYSTEM || ENABLE_LEGACY_INPUT_MANAGER
+            if (!k1 && (Input.GetKeyDown(KeyCode.Alpha1) || Input.GetKeyDown(KeyCode.Keypad1))) k1 = true;
+            if (!k2 && (Input.GetKeyDown(KeyCode.Alpha2) || Input.GetKeyDown(KeyCode.Keypad2))) k2 = true;
+            if (!k3 && (Input.GetKeyDown(KeyCode.Alpha3) || Input.GetKeyDown(KeyCode.Keypad3))) k3 = true;
+            if (!k4 && (Input.GetKeyDown(KeyCode.Alpha4) || Input.GetKeyDown(KeyCode.Keypad4))) k4 = true;
+            if (!kE && Input.GetKeyDown(KeyCode.E)) kE = true;
+            if (!kF && Input.GetKeyDown(KeyCode.F)) kF = true;
+#endif
 
             // Direct door hotkeys 1, 2, 3, 4
-            if (keyboard.digit1Key.wasPressedThisFrame) ToggleDoor(0); // Left (Shark)
-            if (keyboard.digit2Key.wasPressedThisFrame) ToggleDoor(1); // Center (Tyler)
-            if (keyboard.digit3Key.wasPressedThisFrame) ToggleDoor(2); // Right (Eagle)
-            if (keyboard.digit4Key.wasPressedThisFrame) ToggleDoor(3); // Back (Snake)
+            if (k1) ToggleDoor(0); // Left (Erle)
+            if (k2) ToggleDoor(1); // Center (Tyler)
+            if (k3) ToggleDoor(2); // Right (Orville)
+            if (k4) ToggleDoor(3); // Back (Sandy)
 
             // Contextual 'E' key: Toggle the door you are currently looking at!
-            if (_allowFacingInteraction && keyboard.eKey.wasPressedThisFrame)
+            if (_allowFacingInteraction && kE)
             {
                 if (PlayerViewController.HasInstance)
                 {
@@ -60,7 +79,7 @@ namespace Tylerland.Office
             }
 
             // Contextual 'F' key: Toggle Hallway Blindspot Light (like FNAF 1)!
-            if (keyboard.fKey.wasPressedThisFrame)
+            if (kF)
             {
                 if (PlayerViewController.HasInstance)
                 {

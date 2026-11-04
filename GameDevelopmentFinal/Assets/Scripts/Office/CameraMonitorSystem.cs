@@ -158,6 +158,22 @@ namespace Tylerland.Office
             _currentCameraIndex = Mathf.Clamp(_currentCameraIndex, 0, 3);
         }
 
+        private float _lastMonitorLowerTime = -10f;
+        public float LastMonitorLowerTime => _lastMonitorLowerTime;
+
+        private void Update()
+        {
+            // Fail-safe watchdog: ensure animProgress snaps to exact bounds when coroutine ends
+            if (!_isMonitorRaised && _monitorTransitionRoutine == null && _animProgress > 0f)
+            {
+                _animProgress = 0f;
+            }
+            else if (_isMonitorRaised && _monitorTransitionRoutine == null && _animProgress < 1f)
+            {
+                _animProgress = 1f;
+            }
+        }
+
         #region Monitor Controls
         public void ToggleMonitor()
         {
@@ -166,6 +182,17 @@ namespace Tylerland.Office
 
         public void SetMonitorRaised(bool raised, bool immediate = false)
         {
+            // Cooldown debounce: prevent instant re-raising within 0.35s of lowering
+            if (raised && (Time.unscaledTime - _lastMonitorLowerTime < 0.35f))
+            {
+                return;
+            }
+
+            if (!raised)
+            {
+                _lastMonitorLowerTime = Time.unscaledTime;
+            }
+
             _isMonitorRaised = raised;
 
             if (immediate)

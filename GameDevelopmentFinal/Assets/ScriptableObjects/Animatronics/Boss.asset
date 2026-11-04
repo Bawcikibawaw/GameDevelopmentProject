@@ -14,23 +14,23 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Tylerland.Config.AnimatronicConfig
   animatronicId: boss
   displayName: The Amalgam (True Final Boss)
-  formerRole: True Ending Culmination
-  themeColor: {r: 0.75, g: 0.15, b: 0.9, a: 1}
+  formerRole: True Final Boss (Requires All 4 Nightmares)
+  themeColor: {r: 0.8, g: 0.15, b: 0.85, a: 1}
   targetDoorIndex: 1
   activeFromNight: 6
   passiveObserverBeforeActiveNight: 0
-  normalStageCount: 4
-  nightmareStageCount: 4
+  normalStageCount: 3
+  nightmareStageCount: 3
   cameraRouteIndices: 010000000100000001000000
-  retreatStageIndex: 1
-  attackWindowSeconds: 6
-  nightmareAttackWindowSeconds: 5.5
+  retreatStageIndex: 0
+  attackWindowSeconds: 8
+  nightmareAttackWindowSeconds: 8
   extraDurabilityLossOnBlock: 15
-  energyDrainOnNormalBlock: 10
-  energyDrainOnNightmareBlock: 15
-  baseTickInterval: 3
+  energyDrainOnNormalBlock: 15
+  energyDrainOnNightmareBlock: 20
+  baseTickInterval: 3.5
   lateNightAIRamp: 3
-  cameraBehavior: 0
+  cameraBehavior: 3
   counterWeaponId: Shotgun
   cameraStageSprites: []
   nightmareCameraStageSprites:

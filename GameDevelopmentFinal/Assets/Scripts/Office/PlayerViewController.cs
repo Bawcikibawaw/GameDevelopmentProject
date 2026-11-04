@@ -57,6 +57,7 @@ namespace Tylerland.Office
         private float _bufferedTurnInput = 0f;
         private float _bufferTimer = 0f;
         private float _rotationWatchdogTimer = 0f;
+        private bool _justClosedMonitorThisFrame = false;
 
         public OfficeViewDirection CurrentDirection => _currentDirection;
         public bool IsRotating => _isRotating;
@@ -88,10 +89,10 @@ namespace Tylerland.Office
 
         private void Update()
         {
-            // Auto-sync watchdog: If CameraMonitorSystem says tablet is down, ensure _isMonitorOpen is false!
-            if (_isMonitorOpen && CameraMonitorSystem.HasInstance && !CameraMonitorSystem.Instance.IsMonitorRaised && CameraMonitorSystem.Instance.AnimProgress <= 0.05f)
+            // Auto-sync watchdog: If CameraMonitorSystem says tablet is down (AnimProgress <= 0.15f), FORCE _isMonitorOpen = false!
+            if (CameraMonitorSystem.HasInstance && CameraMonitorSystem.Instance.AnimProgress <= 0.15f)
             {
-                _isMonitorOpen = false;
+                if (_isMonitorOpen) _isMonitorOpen = false;
             }
 
             // Only process view input during active gameplay and when game is not paused
@@ -100,11 +101,11 @@ namespace Tylerland.Office
             if (Time.timeScale <= 0f)
                 return;
 
-            // Rotation watchdog: If rotation gets stuck for > 0.65s, force unstick!
+            // Rotation watchdog: If rotation takes > 0.45s, force finish to guarantee no input locks!
             if (_isRotating)
             {
                 _rotationWatchdogTimer += Time.unscaledDeltaTime;
-                if (_rotationWatchdogTimer > 0.65f)
+                if (_rotationWatchdogTimer > 0.45f)
                 {
                     ForceFinishRotation();
                 }
@@ -116,8 +117,9 @@ namespace Tylerland.Office
 
             HandleMonitorInput();
 
-            // When monitor is raised, player cannot pan the camera view
-            if (_isMonitorOpen) return;
+            // When monitor tablet is actively raised over screen, player cannot pan the camera view
+            bool isMonitorActivelyRaised = _isMonitorOpen && (!CameraMonitorSystem.HasInstance || CameraMonitorSystem.Instance.AnimProgress > 0.25f);
+            if (isMonitorActivelyRaised) return;
 
             HandleKeyboardInput();
             // Mouse direction control removed per design: turning view is strictly keyboard (A/D/W/S/Arrows)
@@ -127,6 +129,7 @@ namespace Tylerland.Office
         #region Input Handlers
         private void HandleMonitorInput()
         {
+            _justClosedMonitorThisFrame = false;
             var keyboard = Keyboard.current;
 
             // When monitor is open: allow closing it with Space, Escape, Down Arrow, or 'S' key!
@@ -151,6 +154,7 @@ namespace Tylerland.Office
 #endif
                 if (close)
                 {
+                    _justClosedMonitorThisFrame = true;
                     SetMonitorState(false);
                 }
                 return;
@@ -181,29 +185,33 @@ namespace Tylerland.Office
 
         private void HandleKeyboardInput()
         {
-            var keyboard = Keyboard.current;
-            if (keyboard == null) return;
+            if (_justClosedMonitorThisFrame) return;
 
-            // 'A' or Left Arrow: Turn Left
-            if (keyboard.aKey.wasPressedThisFrame || keyboard.leftArrowKey.wasPressedThisFrame)
+            var keyboard = Keyboard.current;
+            bool turnLeft = false;
+            bool turnRight = false;
+            bool turnBack = false;
+            bool turnCenter = false;
+
+            if (keyboard != null)
             {
-                RequestTurn(-1);
+                turnLeft = keyboard.aKey.wasPressedThisFrame || keyboard.leftArrowKey.wasPressedThisFrame;
+                turnRight = keyboard.dKey.wasPressedThisFrame || keyboard.rightArrowKey.wasPressedThisFrame;
+                turnBack = keyboard.sKey.wasPressedThisFrame || keyboard.downArrowKey.wasPressedThisFrame;
+                turnCenter = keyboard.wKey.wasPressedThisFrame || keyboard.upArrowKey.wasPressedThisFrame;
             }
-            // 'D' or Right Arrow: Turn Right
-            else if (keyboard.dKey.wasPressedThisFrame || keyboard.rightArrowKey.wasPressedThisFrame)
-            {
-                RequestTurn(1);
-            }
-            // 'S' or Down Arrow: Turn Back
-            else if (keyboard.sKey.wasPressedThisFrame || keyboard.downArrowKey.wasPressedThisFrame)
-            {
-                TurnToDirection(OfficeViewDirection.Back);
-            }
-            // 'W' or Up Arrow: Turn Center
-            else if (keyboard.wKey.wasPressedThisFrame || keyboard.upArrowKey.wasPressedThisFrame)
-            {
-                TurnToDirection(OfficeViewDirection.Center);
-            }
+
+#if !ENABLE_INPUT_SYSTEM || ENABLE_LEGACY_INPUT_MANAGER
+            if (!turnLeft && (Input.GetKeyDown(KeyCode.A) || Input.GetKeyDown(KeyCode.LeftArrow))) turnLeft = true;
+            if (!turnRight && (Input.GetKeyDown(KeyCode.D) || Input.GetKeyDown(KeyCode.RightArrow))) turnRight = true;
+            if (!turnBack && (Input.GetKeyDown(KeyCode.S) || Input.GetKeyDown(KeyCode.DownArrow))) turnBack = true;
+            if (!turnCenter && (Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.UpArrow))) turnCenter = true;
+#endif
+
+            if (turnLeft) RequestTurn(-1);
+            else if (turnRight) RequestTurn(1);
+            else if (turnBack) TurnToDirection(OfficeViewDirection.Back);
+            else if (turnCenter) TurnToDirection(OfficeViewDirection.Center);
         }
 
         public void LookInDirection(OfficeViewDirection direction)
@@ -284,6 +292,11 @@ namespace Tylerland.Office
         public void TurnToDirection(OfficeViewDirection direction)
         {
             if (_currentDirection == direction && !_isRotating) return;
+
+            if (_isRotating)
+            {
+                ForceFinishRotation();
+            }
 
             OfficeViewDirection from = _currentDirection;
             _currentDirection = direction;
