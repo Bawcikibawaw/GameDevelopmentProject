@@ -134,6 +134,8 @@ namespace Tylerland.Office
 
         public void TriggerPress()
         {
+            if (!GameStateRules.IsGameplayActive(GameFlowManager.HasInstance ? GameFlowManager.Instance.CurrentState : GameState.NightActive))
+                return;
             if (_isLightButton)
             {
                 if (DoorSystemManager.HasInstance)

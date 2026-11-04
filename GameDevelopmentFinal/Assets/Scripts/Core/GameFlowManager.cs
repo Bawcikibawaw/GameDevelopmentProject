@@ -34,8 +34,8 @@ namespace Tylerland.Core
                 { GameState.Menu,       new HashSet<GameState> { GameState.NightIntro } },
                 { GameState.NightIntro, new HashSet<GameState> { GameState.NightActive } },
                 { GameState.NightActive,new HashSet<GameState> { GameState.NightEnd, GameState.Dead } },
-                { GameState.NightEnd,   new HashSet<GameState> { GameState.Salary, GameState.NightIntro } },
-                { GameState.Salary,     new HashSet<GameState> { GameState.Choice, GameState.Victory } },
+                { GameState.NightEnd,   new HashSet<GameState> { GameState.Salary, GameState.NightIntro, GameState.Menu, GameState.Victory } },
+                { GameState.Salary,     new HashSet<GameState> { GameState.Choice, GameState.Victory, GameState.NightIntro, GameState.Menu } },
                 { GameState.Choice,     new HashSet<GameState> { GameState.Shop, GameState.Minigame } },
                 { GameState.Shop,       new HashSet<GameState> { GameState.NightIntro, GameState.Victory } },
                 { GameState.Minigame,   new HashSet<GameState> { GameState.NightIntro, GameState.Victory } },
@@ -191,6 +191,26 @@ namespace Tylerland.Core
                 // Auto-advance from NightIntro to NightActive
                 _currentState = GameState.NightActive;
                 GameEvents.TriggerGameStateChanged(GameState.NightIntro, GameState.NightActive);
+            }
+            else if (targetState == GameState.NightEnd)
+            {
+                // Ensure monitor tablet is fully lowered and camera view is reset
+                if (Tylerland.Office.CameraMonitorSystem.HasInstance)
+                {
+                    Tylerland.Office.CameraMonitorSystem.Instance.SetMonitorRaised(false, immediate: true);
+                }
+                if (Tylerland.Office.PlayerViewController.HasInstance)
+                {
+                    Tylerland.Office.PlayerViewController.Instance.SetMonitorState(false);
+                }
+                if (Tylerland.Office.AttackResolver.HasInstance)
+                {
+                    Tylerland.Office.AttackResolver.Instance.ClearAllThreats();
+                }
+                if (Tylerland.Animatronics.AnimatronicManager.HasInstance)
+                {
+                    Tylerland.Animatronics.AnimatronicManager.Instance.ResetAllToHome();
+                }
             }
             else if (targetState == GameState.RunReset)
             {

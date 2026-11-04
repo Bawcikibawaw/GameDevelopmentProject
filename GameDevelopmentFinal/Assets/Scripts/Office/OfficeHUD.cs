@@ -25,6 +25,23 @@ namespace Tylerland.Office
         private float _fpsTimeLeft = 0.35f;
         private float _currentFps = 60f;
 
+        private Tylerland.Core.SalaryBreakdown? _lastSalaryBreakdown;
+
+        private void Start()
+        {
+            Tylerland.Core.GameEvents.OnSalaryCalculated += HandleSalaryCalculated;
+        }
+
+        private void OnDestroy()
+        {
+            Tylerland.Core.GameEvents.OnSalaryCalculated -= HandleSalaryCalculated;
+        }
+
+        private void HandleSalaryCalculated(Tylerland.Core.SalaryBreakdown sb)
+        {
+            _lastSalaryBreakdown = sb;
+        }
+
         private void OnGUI()
         {
             if (!_showHUD) return;
@@ -42,6 +59,12 @@ namespace Tylerland.Office
             if (state == GameState.Menu || state == GameState.Boot)
             {
                 DrawMainMenuScreen(screenW, screenH);
+                return;
+            }
+
+            if (state == GameState.NightEnd || state == GameState.Salary)
+            {
+                DrawNightEndScreen(screenW, screenH);
                 return;
             }
 
@@ -555,6 +578,19 @@ namespace Tylerland.Office
             var keyboard = UnityEngine.InputSystem.Keyboard.current;
             var state = GameFlowManager.HasInstance ? GameFlowManager.Instance.CurrentState : GameState.NightActive;
 
+            if (state == GameState.NightEnd || state == GameState.Salary)
+            {
+                if (keyboard != null && (keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame || keyboard.spaceKey.wasPressedThisFrame))
+                {
+                    OnNightEndContinueClicked();
+                }
+                else if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+                {
+                    if (GameFlowManager.HasInstance) GameFlowManager.Instance.TransitionTo(GameState.Menu);
+                }
+                return;
+            }
+
             if (keyboard != null && keyboard.vKey.wasPressedThisFrame)
             {
                 if (state == GameState.Menu)
@@ -846,5 +882,159 @@ namespace Tylerland.Office
             }
             GUI.backgroundColor = Color.white;
         }
+    }
+        private void OnNightEndContinueClicked()
+        {
+            if (RunManager.HasInstance)
+            {
+                if (RunManager.Instance.CurrentNight >= RunManager.Instance.TotalNights)
+                {
+                    if (GameFlowManager.HasInstance) GameFlowManager.Instance.TransitionTo(GameState.Menu);
+                }
+                else
+                {
+                    RunManager.Instance.AdvanceToNextNight();
+                }
+            }
+            else if (GameFlowManager.HasInstance)
+            {
+                GameFlowManager.Instance.TransitionTo(GameState.Menu);
+            }
+        }
+
+        private void DrawNightEndScreen(int screenW, int screenH)
+        {
+            int panelW = Mathf.Min(600, screenW - 40);
+            int panelH = Mathf.Min(500, screenH - 40);
+            int x = (screenW - panelW) / 2;
+            int y = (screenH - panelH) / 2;
+            Rect modalRect = new Rect(x, y, panelW, panelH);
+
+            // Dark backdrop over whole screen
+            GUI.color = new Color(0.02f, 0.04f, 0.08f, 0.88f);
+            GUI.DrawTexture(new Rect(0, 0, screenW, screenH), Texture2D.whiteTexture);
+
+            // Center Panel
+            GUI.color = new Color(0.08f, 0.10f, 0.16f, 0.98f);
+            GUI.Box(modalRect, "");
+            GUI.color = Color.white;
+
+            GUILayout.BeginArea(new Rect(x + 24, y + 20, panelW - 48, panelH - 40));
+
+            int currentNight = RunManager.HasInstance ? RunManager.Instance.CurrentNight : 1;
+            int totalNights = RunManager.HasInstance ? RunManager.Instance.TotalNights : 6;
+            int bankFunds = RunManager.HasInstance ? RunManager.Instance.Money : 0;
+
+            GUIStyle titleStyle = new GUIStyle(GUI.skin.label)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = 32,
+                fontStyle = FontStyle.Bold,
+                richText = true
+            };
+            titleStyle.normal.textColor = new Color(1f, 0.85f, 0.2f);
+            GUILayout.Label("★ 6:00 AM ★", titleStyle);
+
+            GUIStyle subStyle = new GUIStyle(GUI.skin.label)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = 18,
+                fontStyle = FontStyle.Bold,
+                richText = true
+            };
+            subStyle.normal.textColor = Color.white;
+            GUILayout.Label($"<b>SHIFT SURVIVED — NIGHT {currentNight} COMPLETE!</b>", subStyle);
+
+            GUIStyle descStyle = new GUIStyle(GUI.skin.label)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = 12,
+                richText = true
+            };
+            descStyle.normal.textColor = new Color(0.6f, 0.7f, 0.8f);
+            GUILayout.Label("The grandfather clock chimes morning dawn. The animatronics return to their stages.", descStyle);
+
+            GUILayout.Space(12);
+
+            // Salary Breakdown Card
+            var sb = _lastSalaryBreakdown ?? new Tylerland.Core.SalaryBreakdown(currentNight, 100 + (currentNight - 1) * 50, 25, 0, 125 + (currentNight - 1) * 50);
+
+            GUILayout.BeginVertical(GUI.skin.box);
+            GUIStyle cardHeaderStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 13,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter
+            };
+            cardHeaderStyle.normal.textColor = new Color(0.7f, 0.85f, 1f);
+            GUILayout.Label("-- SHIFT PAYCHECK & BREAKDOWN --", cardHeaderStyle);
+            GUILayout.Space(6);
+
+            GUIStyle lineStyle = new GUIStyle(GUI.skin.label) { fontSize = 12, richText = true };
+            lineStyle.normal.textColor = Color.white;
+
+            GUILayout.Label($"  Base Shift Salary:                        <color=#4ade80>+${sb.baseSalary}</color>", lineStyle);
+            GUILayout.Label($"  Clean Shift Performance Bonus:   <color=#4ade80>+${sb.cleanNightBonus}</color>", lineStyle);
+            GUILayout.Label($"  Door & Hardware Repair Deductions: <color=#f87171>-${sb.repairDeductions}</color>", lineStyle);
+            GUILayout.Space(4);
+            GUILayout.Label("  ───────────────────────────────────────────", lineStyle);
+            GUILayout.Label($"  <b>Shift Total Net Payout:               <color=#38bdf8>+${sb.totalSalary}</color></b>", lineStyle);
+            GUILayout.Label($"  <b>Total Bank Funds:                       <color=#ffd700>${bankFunds}</color></b>", lineStyle);
+            GUILayout.EndVertical();
+
+            GUILayout.Space(14);
+
+            // Buttons
+            GUIStyle btnStyle = new GUIStyle(GUI.skin.button)
+            {
+                fontSize = 14,
+                fontStyle = FontStyle.Bold,
+                fixedHeight = 42
+            };
+
+            if (currentNight < totalNights)
+            {
+                GUI.backgroundColor = new Color(0.15f, 0.65f, 0.35f, 1f);
+                if (GUILayout.Button($"<b>CONTINUE TO NIGHT {currentNight + 1}  [ENTER]</b>", btnStyle))
+                {
+                    OnNightEndContinueClicked();
+                }
+                GUI.backgroundColor = Color.white;
+
+                GUILayout.Space(6);
+
+                GUI.backgroundColor = new Color(0.35f, 0.40f, 0.50f, 1f);
+                GUIStyle menuBtnStyle = new GUIStyle(GUI.skin.button) { fontSize = 12, fixedHeight = 32 };
+                if (GUILayout.Button("RETURN TO MAIN MENU  [ESC]", menuBtnStyle))
+                {
+                    if (GameFlowManager.HasInstance) GameFlowManager.Instance.TransitionTo(GameState.Menu);
+                }
+                GUI.backgroundColor = Color.white;
+            }
+            else
+            {
+                GUIStyle victoryLabelStyle = new GUIStyle(GUI.skin.label)
+                {
+                    fontSize = 16,
+                    fontStyle = FontStyle.Bold,
+                    alignment = TextAnchor.MiddleCenter,
+                    richText = true
+                };
+                victoryLabelStyle.normal.textColor = new Color(1f, 0.85f, 0.2f);
+                GUILayout.Label("🏆 ALL 6 NIGHTS OF TYLERLAND SURVIVED! 🏆", victoryLabelStyle);
+
+                GUILayout.Space(8);
+
+                GUI.backgroundColor = new Color(0.2f, 0.6f, 0.9f, 1f);
+                if (GUILayout.Button("<b>CLAIM VICTORY & RETURN TO MENU  [ENTER]</b>", btnStyle))
+                {
+                    if (GameFlowManager.HasInstance) GameFlowManager.Instance.TransitionTo(GameState.Menu);
+                }
+                GUI.backgroundColor = Color.white;
+            }
+
+            GUILayout.EndArea();
+        }
+
     }
 }
