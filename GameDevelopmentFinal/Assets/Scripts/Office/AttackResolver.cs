@@ -81,6 +81,7 @@ namespace Tylerland.Office
 
         public void ClearAllThreats()
         {
+            StopAllCoroutines();
             _activeThreats.Clear();
             _blockStatusTimer = 0f;
             _lastBlockStatusMessage = "";
@@ -217,10 +218,6 @@ namespace Tylerland.Office
             return false;
         }
 
-        public void ClearAllThreats()
-        {
-            StopAllCoroutines();
-            _activeThreats.Clear();
-        }
+
     }
 }

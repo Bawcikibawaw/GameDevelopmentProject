@@ -882,7 +882,7 @@ namespace Tylerland.Office
             }
             GUI.backgroundColor = Color.white;
         }
-    }
+
         private void OnNightEndContinueClicked()
         {
             if (RunManager.HasInstance)
@@ -1037,3 +1037,4 @@ namespace Tylerland.Office
         }
 
     }
+}
