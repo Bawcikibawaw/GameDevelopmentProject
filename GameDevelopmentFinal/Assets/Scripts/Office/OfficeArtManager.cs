@@ -319,6 +319,8 @@ namespace Tylerland.Office
         [ContextMenu("Apply All 2D Sprites Now")]
         public void ApplyAllArt()
         {
+            LoadDuvarlarSprites();
+
             Color[] wallTints =
             {
                 new Color(0.36f, 0.33f, 0.24f, 1f), // 0: Left (Erle - Sheriff Gold-Gray)
@@ -465,6 +467,31 @@ namespace Tylerland.Office
                 var mr = _placeholder3DCeiling.GetComponent<MeshRenderer>();
                 if (mr != null) mr.enabled = false;
             }
+        }
+
+        private const string DuvarlarFolder = "Assets/Sprites/Duvarlar/";
+
+        /// <summary>
+        /// Auto-assigns the artist sprites from Assets/Sprites/Duvarlar to the 4 walls, floor and ceiling
+        /// whenever those slots are empty (editor-side loader).
+        /// </summary>
+        private void LoadDuvarlarSprites()
+        {
+#if UNITY_EDITOR
+            string[] wallFiles = { "spr_wall_left", "spr_wall_center", "spr_wall_right", "spr_wall_rear" };
+            if (_wallSlots != null)
+            {
+                for (int i = 0; i < _wallSlots.Length && i < wallFiles.Length; i++)
+                {
+                    if (_wallSlots[i] != null && _wallSlots[i].wallSprite == null)
+                        _wallSlots[i].wallSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(DuvarlarFolder + wallFiles[i] + ".png");
+                }
+            }
+            if (_floorSprite == null)
+                _floorSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(DuvarlarFolder + "spr_floor.png");
+            if (_ceilingSprite == null)
+                _ceilingSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(DuvarlarFolder + "spr_ceiling.png");
+#endif
         }
 
         /// <summary>
