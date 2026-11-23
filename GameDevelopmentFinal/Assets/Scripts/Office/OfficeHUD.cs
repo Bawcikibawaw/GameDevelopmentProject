@@ -50,30 +50,27 @@ namespace Tylerland.Office
             int screenH = Screen.height;
 
             var state = GameFlowManager.HasInstance ? GameFlowManager.Instance.CurrentState : GameState.NightActive;
-            // 0. TOP LEFT: Performance Diagnostics (FPS Counter)
-            if (_showFpsCounter)
+            // 0. TOP LEFT: Performance Diagnostics (FPS Counter — controlled by Settings)
+            if (_showFpsCounter && AudioSettingsManager.ShowFpsCounter)
             {
                 DrawFpsCounter();
             }
 
+            // Dedicated UGUI Pause Menu & Between-Nights Hub handle Pause, NightEnd, Choice, Shop, Minigame, Dead, Victory
             if (state == GameState.Menu || state == GameState.Boot)
             {
-                DrawMainMenuScreen(screenW, screenH);
-                return;
-            }
-
-            if (state == GameState.NightEnd || state == GameState.Salary)
-            {
-                DrawNightEndScreen(screenW, screenH);
+                if (!Application.CanStreamedLevelBeLoaded("MainMenu"))
+                {
+                    DrawMainMenuScreen(screenW, screenH);
+                }
                 return;
             }
 
             if (state != GameState.NightActive) return;
 
-            // Pause Overlay Check
+            // Pause Overlay is now rendered by UGUI PauseMenuUI
             if (GameFlowManager.HasInstance && GameFlowManager.Instance.IsPaused)
             {
-                DrawPauseMenuOverlay(screenW, screenH);
                 return;
             }
 
@@ -260,12 +257,12 @@ namespace Tylerland.Office
         private void DrawWeaponsWidget(int screenW, int screenH)
         {
             // Moved to TOP RIGHT directly underneath the Shift Clock per user request
-            int w = 330;
-            int h = 145;
+            int w = 360;
+            int h = 152;
             int x = screenW - w - 20;
             int y = 96;
             Rect rect = new Rect(x, y, w, h);
-            GUI.Box(rect, "<b>SPECIAL WEAPONS ('Q' to Use | 'G' Grant All)</b>");
+            GUI.Box(rect, "<b>WEAPONS (1 USE / 5-NIGHT RUN | 'Q' Fire)</b>");
 
             GUILayout.BeginArea(new Rect(x + 10, y + 22, w - 20, h - 26));
             GUILayout.Space(14);
@@ -285,14 +282,24 @@ namespace Tylerland.Office
                 string animId = weaponTable[i, 2];
 
                 bool owned = RunManager.HasInstance && RunManager.Instance.State.weaponsOwned.Contains(wId);
-                bool used = RunManager.HasInstance && RunManager.Instance.State.weaponsUsed.Contains(wId);
+                bool used = RunManager.HasInstance && RunManager.Instance.State.HasUsedWeaponThisRun(wId);
                 bool isNightmare = RunManager.HasInstance && RunManager.Instance.State.IsNightmareState(animId);
 
                 string status = owned
-                    ? "<color=#44ff66>[1 USE READY]</color>"
-                    : (used ? "<color=#ff5555>[USED]</color>" : "<color=#888888>[LOCKED]</color>");
+                    ? "<color=#44ff66>[1/1 RUN]</color>"
+                    : (used ? "<color=#ff5555>[SPENT]</color>" : "<color=#888888>[LOCKED]</color>");
 
-                string nmBadge = isNightmare ? " <color=#ff3366>[NIGHTMARE]</color>" : "";
+                string nmBadge = "";
+                if (isNightmare)
+                {
+                    int shotN = RunManager.HasInstance ? RunManager.Instance.State.GetShotNight(animId) : 0;
+                    var unit = AnimatronicManager.HasInstance ? AnimatronicManager.Instance.GetAnimatronic(animId) : null;
+                    int aiLvl = unit != null ? unit.EffectiveAILevel : 0;
+                    nmBadge = shotN > 0
+                        ? $" <color=#ff3366>[NIGHTMARE N{shotN} AI:{aiLvl}]</color>"
+                        : $" <color=#ff3366>[NIGHTMARE AI:{aiLvl}]</color>";
+                }
+
                 GUILayout.Label($"• <b>{wId}</b> ({target}): {status}{nmBadge}");
             }
 
@@ -488,6 +495,7 @@ namespace Tylerland.Office
 
         private void DrawSubtitlesWidget(int screenW)
         {
+            if (!AudioSettingsManager.SubtitlesEnabled) return;
             if (!PhoneSystem.HasInstance || !PhoneSystem.Instance.IsCallActive) return;
 
             string sub = PhoneSystem.Instance.CurrentSubtitle;
@@ -578,16 +586,9 @@ namespace Tylerland.Office
             var keyboard = UnityEngine.InputSystem.Keyboard.current;
             var state = GameFlowManager.HasInstance ? GameFlowManager.Instance.CurrentState : GameState.NightActive;
 
-            if (state == GameState.NightEnd || state == GameState.Salary)
+            if (state == GameState.NightEnd || state == GameState.Salary || state == GameState.Choice || state == GameState.Shop || state == GameState.Minigame || state == GameState.Dead || state == GameState.Victory)
             {
-                if (keyboard != null && (keyboard.enterKey.wasPressedThisFrame || keyboard.numpadEnterKey.wasPressedThisFrame || keyboard.spaceKey.wasPressedThisFrame))
-                {
-                    OnNightEndContinueClicked();
-                }
-                else if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
-                {
-                    if (GameFlowManager.HasInstance) GameFlowManager.Instance.TransitionTo(GameState.Menu);
-                }
+                // Handled interactively by UGUI BetweenNightsUI
                 return;
             }
 

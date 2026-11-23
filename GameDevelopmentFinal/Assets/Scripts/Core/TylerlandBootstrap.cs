@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using Tylerland.Config;
 
 #if UNITY_EDITOR
@@ -38,13 +39,36 @@ namespace Tylerland.Core
         protected override void Awake()
         {
             base.Awake();
+            AudioSettingsManager.EnsureLoaded();
         }
 
         private void Start()
         {
             GameEvents.OnNightStarted += HandleNightStarted;
+            SceneManager.sceneLoaded += HandleSceneLoaded;
 
-            // Initialize Night Clock with Night 1 config if provided
+            EnsureOfficeSceneUIPresent();
+
+            if (SceneLaunchRequest.LaunchedFromMainMenu)
+            {
+                bool newRun = SceneLaunchRequest.StartNewRun;
+                int reqNight = Mathf.Max(1, SceneLaunchRequest.RequestedNight);
+                SceneLaunchRequest.LaunchedFromMainMenu = false;
+
+                var cfg = GetConfigForNight(reqNight);
+                if (cfg != null && NightClock.HasInstance)
+                {
+                    NightClock.Instance.Initialize(cfg);
+                }
+
+                if (GameFlowManager.HasInstance)
+                {
+                    GameFlowManager.Instance.BeginGameplayFromMenu(newRun, reqNight);
+                }
+                return;
+            }
+
+            // Direct Play in SampleScene (Editor playtest fallback)
             var n1Config = GetConfigForNight(1);
             if (n1Config != null && NightClock.HasInstance)
             {
@@ -61,6 +85,51 @@ namespace Tylerland.Core
         {
             base.OnDestroy();
             GameEvents.OnNightStarted -= HandleNightStarted;
+            SceneManager.sceneLoaded -= HandleSceneLoaded;
+        }
+
+        private void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            if (scene.name == "MainMenu") return;
+
+            EnsureOfficeSceneUIPresent();
+
+            if (SceneLaunchRequest.LaunchedFromMainMenu)
+            {
+                bool newRun = SceneLaunchRequest.StartNewRun;
+                int reqNight = Mathf.Max(1, SceneLaunchRequest.RequestedNight);
+                SceneLaunchRequest.LaunchedFromMainMenu = false;
+
+                var cfg = GetConfigForNight(reqNight);
+                if (cfg != null && NightClock.HasInstance)
+                {
+                    NightClock.Instance.Initialize(cfg);
+                }
+
+                if (GameFlowManager.HasInstance)
+                {
+                    GameFlowManager.Instance.BeginGameplayFromMenu(newRun, reqNight);
+                }
+            }
+        }
+
+        private void EnsureOfficeSceneUIPresent()
+        {
+            if (SceneManager.GetActiveScene().name == "MainMenu") return;
+
+            var pauseUI = FindFirstObjectByType<Tylerland.UI.PauseMenuUI>();
+            var betweenUI = FindFirstObjectByType<Tylerland.UI.BetweenNightsUI>();
+
+            if (pauseUI == null || betweenUI == null)
+            {
+                var uiRoot = GameObject.Find("[OFFICE_UI]");
+                if (uiRoot == null)
+                {
+                    uiRoot = new GameObject("[OFFICE_UI]");
+                }
+                if (pauseUI == null) uiRoot.AddComponent<Tylerland.UI.PauseMenuUI>();
+                if (betweenUI == null) uiRoot.AddComponent<Tylerland.UI.BetweenNightsUI>();
+            }
         }
 
         private void HandleNightStarted(int nightNumber)

@@ -672,7 +672,7 @@ namespace Tylerland.Office
                 if (isLightOn)
                 {
                     float flicker = 1f;
-                    if (_enableFluorescentFlicker && Application.isPlaying)
+                    if (_enableFluorescentFlicker && !Tylerland.Core.AudioSettingsManager.ReduceFlashing && Application.isPlaying)
                     {
                         flicker = (Mathf.PerlinNoise(Time.time * 24f, i * 10f) > 0.12f) ? 1f : 0.45f;
                     }

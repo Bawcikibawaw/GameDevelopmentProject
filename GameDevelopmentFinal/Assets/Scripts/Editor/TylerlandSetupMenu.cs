@@ -29,7 +29,73 @@ namespace Tylerland.Editor
 
         private static void SyncOpenSceneSpritesIfNeeded()
         {
+            EnsureMainMenuSceneAndBuildSettings(forceRebuild: false);
             SyncOpenSceneSprites(force: false);
+        }
+
+        [MenuItem("Tylerland/4. Create MainMenu Scene & Setup Build Settings", false, 4)]
+        public static void CreateMainMenuSceneMenu()
+        {
+            EnsureMainMenuSceneAndBuildSettings(forceRebuild: true);
+            EditorUtility.DisplayDialog(
+                "MainMenu Scene Ready",
+                "Created Assets/Scenes/MainMenu.unity and registered Build Settings:\n0: MainMenu.unity\n1: SampleScene.unity",
+                "OK");
+        }
+
+        private static void EnsureMainMenuSceneAndBuildSettings(bool forceRebuild)
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode || Application.isBatchMode) return;
+
+            const string mainMenuPath = "Assets/Scenes/MainMenu.unity";
+            const string sampleScenePath = "Assets/Scenes/SampleScene.unity";
+
+            if (forceRebuild || !File.Exists(mainMenuPath))
+            {
+                var menuScene = UnityEditor.SceneManagement.EditorSceneManager.NewScene(
+                    UnityEditor.SceneManagement.NewSceneSetup.EmptyScene,
+                    UnityEditor.SceneManagement.NewSceneMode.Additive);
+
+                // 1. Main Camera
+                var camObj = new GameObject("Main Camera");
+                camObj.tag = "MainCamera";
+                var cam = camObj.AddComponent<Camera>();
+                cam.clearFlags = CameraClearFlags.SolidColor;
+                cam.backgroundColor = new Color(0.025f, 0.028f, 0.045f, 1f);
+                camObj.AddComponent<AudioListener>();
+                UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(camObj, menuScene);
+
+                // 2. MainMenu UGUI Controller
+                var menuRoot = new GameObject("MainMenu_Controller");
+                menuRoot.AddComponent<Tylerland.UI.MainMenuController>();
+                UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(menuRoot, menuScene);
+
+                // 3. EventSystem (New Input System UI Module)
+                var esObj = new GameObject("EventSystem");
+                esObj.AddComponent<UnityEngine.EventSystems.EventSystem>();
+                esObj.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
+                UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(esObj, menuScene);
+
+                UnityEditor.SceneManagement.EditorSceneManager.SaveScene(menuScene, mainMenuPath);
+                UnityEditor.SceneManagement.EditorSceneManager.CloseScene(menuScene, true);
+                AssetDatabase.Refresh();
+                Debug.Log($"[Tylerland] Created dedicated MainMenu scene at {mainMenuPath}");
+            }
+
+            // Ensure Build Settings has MainMenu (0) and SampleScene (1)
+            var currentScenes = EditorBuildSettings.scenes;
+            bool hasMainMenuAt0 = currentScenes != null && currentScenes.Length >= 2
+                && currentScenes[0].path == mainMenuPath && currentScenes[0].enabled
+                && currentScenes[1].path == sampleScenePath && currentScenes[1].enabled;
+
+            if (!hasMainMenuAt0 || forceRebuild)
+            {
+                var list = new System.Collections.Generic.List<EditorBuildSettingsScene>();
+                if (File.Exists(mainMenuPath)) list.Add(new EditorBuildSettingsScene(mainMenuPath, true));
+                if (File.Exists(sampleScenePath)) list.Add(new EditorBuildSettingsScene(sampleScenePath, true));
+                EditorBuildSettings.scenes = list.ToArray();
+                Debug.Log("[Tylerland] Updated EditorBuildSettings: [0] MainMenu.unity, [1] SampleScene.unity");
+            }
         }
 
         private static void EnsureSingleSpriteImport(string assetPath)
