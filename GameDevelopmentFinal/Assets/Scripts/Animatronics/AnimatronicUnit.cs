@@ -20,6 +20,7 @@ namespace Tylerland.Animatronics
         [SerializeField] private AnimatronicConfig _config;
 
         [Header("Runtime AI State (Read Only)")]
+        [SerializeField] private int _currentNight = 1;
         [SerializeField] private int _baseAILevel = 0;
         [SerializeField] private int _effectiveAILevel = 0;
         [SerializeField] private int _currentStage = 0;
@@ -124,6 +125,7 @@ namespace Tylerland.Animatronics
         public void Initialize(AnimatronicConfig config, int startingAILevel, int currentNight = 1)
         {
             _config = config;
+            _currentNight = Mathf.Max(1, currentNight);
             _baseAILevel = Mathf.Clamp(startingAILevel, 0, 20);
             _currentStage = 0;
             _isAtDoorBlindspot = false;
@@ -139,8 +141,10 @@ namespace Tylerland.Animatronics
             _erleScanCooldownTimer = 0f;
             _statusCallout = "";
 
-            // GDD §4.1 & §4.2.2: Tyler is present and watches the camera during Nights 1-3, but chooses not to attack until Night 4!
-            if (_config != null && _config.passiveObserverBeforeActiveNight && currentNight < _config.activeFromNight)
+            RefreshDamageAndNightmareState();
+
+            // GDD §4.1 & §4.2.2: Tyler is passive Nights 1-3 UNLESS permanently enraged into Nightmare Mode!
+            if (_config != null && _config.passiveObserverBeforeActiveNight && currentNight < _config.activeFromNight && !_isNightmare)
             {
                 _isPassiveObserver = true;
                 _baseAILevel = 0;
@@ -149,9 +153,12 @@ namespace Tylerland.Animatronics
             else
             {
                 _isPassiveObserver = false;
+                if (_isNightmare && _baseAILevel <= 0)
+                {
+                    _baseAILevel = 2;
+                }
             }
 
-            RefreshDamageAndNightmareState();
             RecalculateEffectiveAI(0f);
             ResetTickTimer();
             UpdateDoorway2DSprite();
@@ -168,13 +175,13 @@ namespace Tylerland.Animatronics
             if (RunManager.HasInstance && _config != null)
             {
                 _damageLevel = RunManager.Instance.State.GetAnimatronicDamage(_config.animatronicId);
+                _isNightmare = RunManager.Instance.State.IsNightmareState(_config.animatronicId);
             }
             else
             {
                 _damageLevel = 0;
+                _isNightmare = false;
             }
-
-            _isNightmare = _damageLevel > 0;
 
             // GDD §4.2.5: Nightmare Tyler destroys his own camera!
             if (_config != null && _config.cameraBehavior == CameraStallBehavior.TylerDestroysCameraInNightmare)
@@ -234,14 +241,20 @@ namespace Tylerland.Animatronics
 
         public void RecalculateEffectiveAI(float hourBlendFactor)
         {
-            if (_baseAILevel <= 0 || _isPassiveObserver)
+            if ((_baseAILevel <= 0 && !_isNightmare) || _isPassiveObserver)
             {
                 _effectiveAILevel = 0;
                 return;
             }
 
             int rampBonus = _config != null ? Mathf.FloorToInt(hourBlendFactor * _config.lateNightAIRamp) : 0;
-            int nightmareBonus = _isNightmare ? 2 : 0;
+            int nightmareBonus = 0;
+            if (_isNightmare)
+            {
+                nightmareBonus = RunManager.HasInstance
+                    ? RunManager.Instance.State.GetNightmareNightBonus(AnimatronicId, _currentNight)
+                    : 4;
+            }
 
             _effectiveAILevel = Mathf.Clamp(_baseAILevel + rampBonus + nightmareBonus, 0, 20);
         }

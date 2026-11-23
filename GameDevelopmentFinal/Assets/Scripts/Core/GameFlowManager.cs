@@ -1,9 +1,20 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Tylerland.Core
 {
+    /// <summary>
+    /// Cross-scene launch parameters passed from MainMenu scene to SampleScene.
+    /// </summary>
+    public static class SceneLaunchRequest
+    {
+        public static bool LaunchedFromMainMenu = false;
+        public static bool StartNewRun = true;
+        public static int RequestedNight = 1;
+    }
+
     /// <summary>
     /// Section 3.1: Game Flow State Machine.
     /// Central manager owning the active game mode/state and coordinating transitions.
@@ -30,17 +41,17 @@ namespace Tylerland.Core
         private readonly Dictionary<GameState, HashSet<GameState>> _allowedTransitions =
             new Dictionary<GameState, HashSet<GameState>>
             {
-                { GameState.Boot,       new HashSet<GameState> { GameState.Menu } },
+                { GameState.Boot,       new HashSet<GameState> { GameState.Menu, GameState.NightIntro } },
                 { GameState.Menu,       new HashSet<GameState> { GameState.NightIntro } },
-                { GameState.NightIntro, new HashSet<GameState> { GameState.NightActive } },
-                { GameState.NightActive,new HashSet<GameState> { GameState.NightEnd, GameState.Dead } },
-                { GameState.NightEnd,   new HashSet<GameState> { GameState.Salary, GameState.NightIntro, GameState.Menu, GameState.Victory } },
-                { GameState.Salary,     new HashSet<GameState> { GameState.Choice, GameState.Victory, GameState.NightIntro, GameState.Menu } },
-                { GameState.Choice,     new HashSet<GameState> { GameState.Shop, GameState.Minigame } },
-                { GameState.Shop,       new HashSet<GameState> { GameState.NightIntro, GameState.Victory } },
-                { GameState.Minigame,   new HashSet<GameState> { GameState.NightIntro, GameState.Victory } },
-                { GameState.Dead,       new HashSet<GameState> { GameState.RunReset } },
-                { GameState.RunReset,   new HashSet<GameState> { GameState.Menu } },
+                { GameState.NightIntro, new HashSet<GameState> { GameState.NightActive, GameState.Menu } },
+                { GameState.NightActive,new HashSet<GameState> { GameState.NightEnd, GameState.Dead, GameState.Menu, GameState.NightIntro } },
+                { GameState.NightEnd,   new HashSet<GameState> { GameState.Salary, GameState.Choice, GameState.Shop, GameState.Minigame, GameState.NightIntro, GameState.Menu, GameState.Victory } },
+                { GameState.Salary,     new HashSet<GameState> { GameState.Choice, GameState.Shop, GameState.Minigame, GameState.Victory, GameState.NightIntro, GameState.Menu } },
+                { GameState.Choice,     new HashSet<GameState> { GameState.Shop, GameState.Minigame, GameState.NightIntro, GameState.Victory, GameState.Menu } },
+                { GameState.Shop,       new HashSet<GameState> { GameState.Choice, GameState.Minigame, GameState.NightIntro, GameState.Victory, GameState.Menu } },
+                { GameState.Minigame,   new HashSet<GameState> { GameState.Choice, GameState.Shop, GameState.NightIntro, GameState.Victory, GameState.Menu } },
+                { GameState.Dead,       new HashSet<GameState> { GameState.RunReset, GameState.NightIntro, GameState.Menu } },
+                { GameState.RunReset,   new HashSet<GameState> { GameState.Menu, GameState.NightIntro } },
                 { GameState.Victory,    new HashSet<GameState> { GameState.RunReset, GameState.Menu } }
             };
 
@@ -123,6 +134,88 @@ namespace Tylerland.Core
             {
                 TransitionTo(GameState.NightIntro);
             }
+        }
+
+        /// <summary>
+        /// Restarts the currently active night cleanly from Pause or Game Over.
+        /// </summary>
+        public void RestartCurrentNight()
+        {
+            if (_isPaused)
+            {
+                _isPaused = false;
+                Time.timeScale = 1f;
+                GameEvents.TriggerPauseToggled(false);
+            }
+            if (Tylerland.Office.CameraMonitorSystem.HasInstance)
+            {
+                Tylerland.Office.CameraMonitorSystem.Instance.SetMonitorRaised(false, immediate: true);
+            }
+            if (Tylerland.Office.PlayerViewController.HasInstance)
+            {
+                Tylerland.Office.PlayerViewController.Instance.SetMonitorState(false);
+            }
+            if (Tylerland.Office.AttackResolver.HasInstance)
+            {
+                Tylerland.Office.AttackResolver.Instance.ClearAllThreats();
+            }
+
+            StopAllCoroutines();
+            _isTransitioning = false;
+            StartCoroutine(ExecuteTransition(GameState.NightIntro));
+        }
+
+        /// <summary>
+        /// Cleanly exits the office scene and loads the dedicated MainMenu scene if present in Build Settings.
+        /// </summary>
+        public void ReturnToMainMenuScene()
+        {
+            if (_isPaused)
+            {
+                _isPaused = false;
+                Time.timeScale = 1f;
+                GameEvents.TriggerPauseToggled(false);
+            }
+            StopAllCoroutines();
+            _isTransitioning = false;
+            _currentState = GameState.Menu;
+            GameEvents.TriggerGameStateChanged(_currentState, GameState.Menu);
+
+            if (Application.CanStreamedLevelBeLoaded("MainMenu"))
+            {
+                SceneLaunchRequest.LaunchedFromMainMenu = false;
+                SceneManager.LoadScene("MainMenu");
+            }
+            else
+            {
+                Debug.LogWarning("[GameFlowManager] 'MainMenu' scene not in Build Settings yet; staying in Menu state.");
+            }
+        }
+
+        /// <summary>
+        /// Launches the gameplay scene cleanly from MainMenu or starts NightIntro if already in SampleScene.
+        /// </summary>
+        public void BeginGameplayFromMenu(bool newRun, int targetNight = 1)
+        {
+            if (_isPaused)
+            {
+                _isPaused = false;
+                Time.timeScale = 1f;
+            }
+            StopAllCoroutines();
+            _isTransitioning = false;
+
+            if (RunManager.HasInstance)
+            {
+                if (newRun)
+                {
+                    RunManager.Instance.StartNewRun();
+                }
+                RunManager.Instance.State.currentNight = Mathf.Max(1, targetNight);
+            }
+
+            _currentState = GameState.Menu;
+            StartCoroutine(ExecuteTransition(GameState.NightIntro));
         }
 
         /// <summary>

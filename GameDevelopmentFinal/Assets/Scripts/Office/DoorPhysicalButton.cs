@@ -28,6 +28,7 @@ namespace Tylerland.Office
         [SerializeField] private SpriteRenderer _buttonRenderer;
         [SerializeField] private Sprite _customDefaultSprite;
         [SerializeField] private Sprite _customActiveSprite;
+        [SerializeField] private Vector2 _targetWorldSize = new Vector2(0.33f, 0.242f);
 
         [Header("Tactile Click Feedback")]
         [SerializeField] private float _pressDepressionDepth = 0.018f;
@@ -46,6 +47,15 @@ namespace Tylerland.Office
             _doorIndex = doorIndex;
             _isLightButton = isLightButton;
             if (renderer != null) _buttonRenderer = renderer;
+        }
+
+        public void SetCustomSprite(Sprite defaultSprite, Sprite activeSprite, Vector2 targetWorldSize)
+        {
+            if (defaultSprite != null) _customDefaultSprite = defaultSprite;
+            if (activeSprite != null) _customActiveSprite = activeSprite;
+            if (targetWorldSize.x > 0f && targetWorldSize.y > 0f) _targetWorldSize = targetWorldSize;
+            if (!_isPressedAnimRunning) _originalLocalPos = transform.localPosition;
+            UpdateVisuals(true);
         }
 
         private void Awake()
@@ -182,53 +192,94 @@ namespace Tylerland.Office
 
         private void UpdateVisuals(bool force)
         {
-            var door = DoorSystemManager.HasInstance ? DoorSystemManager.Instance.GetDoor(_doorIndex) : FindDoorByIndex(_doorIndex);
+            if (_buttonRenderer == null) _buttonRenderer = GetComponent<SpriteRenderer>();
+            if (_buttonRenderer == null) return;
+            if (_boxCollider == null) _boxCollider = GetComponent<BoxCollider>();
+
+            var door = Application.isPlaying && DoorSystemManager.HasInstance
+                ? DoorSystemManager.Instance.GetDoor(_doorIndex)
+                : FindDoorByIndex(_doorIndex);
+
+            bool hasCustomSprite = _customDefaultSprite != null;
+            Sprite prevSprite = _buttonRenderer.sprite;
 
             if (_isLightButton)
             {
-                // WHITE BUTTON FOR LIGHT (User Requirement: white for light)
+                // WHITE/GRAY BUTTON FOR LIGHT (top button)
                 bool isLightOn = door != null && door.IsLightOn;
 
-                if (_customDefaultSprite != null && _customActiveSprite != null)
+                if (hasCustomSprite)
                 {
-                    _buttonRenderer.sprite = isLightOn ? _customActiveSprite : _customDefaultSprite;
+                    _buttonRenderer.sprite = (isLightOn && _customActiveSprite != null) ? _customActiveSprite : _customDefaultSprite;
+                    _buttonRenderer.color = isLightOn
+                        ? Color.white
+                        : new Color(0.75f, 0.77f, 0.82f, 1.0f);
                 }
                 else
                 {
                     _buttonRenderer.sprite = Procedural2DSpriteFactory.GetOrCreateLightButtonSprite(isLightOn);
+                    _buttonRenderer.color = isLightOn
+                        ? new Color(1.0f, 1.0f, 0.94f, 1.0f)
+                        : new Color(0.88f, 0.90f, 0.94f, 1.0f);
                 }
-
-                _buttonRenderer.color = isLightOn
-                    ? new Color(1.0f, 1.0f, 0.94f, 1.0f) // Bright luminous warm white glow
-                    : new Color(0.88f, 0.90f, 0.94f, 1.0f); // Clean industrial titanium white
             }
             else
             {
-                // RED BUTTON FOR DOOR (User Requirement: red for door)
+                // RED BUTTON FOR DOOR (bottom button)
                 bool isClosed = door != null && door.IsClosed;
                 bool isBrokenOrLocked = door != null && (door.IsBroken || door.IsLockedOut);
 
-                if (_customDefaultSprite != null && _customActiveSprite != null)
+                if (hasCustomSprite)
                 {
-                    _buttonRenderer.sprite = isClosed ? _customActiveSprite : _customDefaultSprite;
+                    _buttonRenderer.sprite = (isClosed && _customActiveSprite != null) ? _customActiveSprite : _customDefaultSprite;
+                    if (isBrokenOrLocked)
+                    {
+                        float pulse = (Mathf.Sin(Time.time * 8f) + 1f) * 0.5f;
+                        _buttonRenderer.color = Color.Lerp(new Color(1f, 0.65f, 0.25f, 1f), new Color(1f, 0.95f, 0.55f, 1f), pulse);
+                    }
+                    else if (isClosed)
+                    {
+                        _buttonRenderer.color = Color.white;
+                    }
+                    else
+                    {
+                        _buttonRenderer.color = new Color(0.74f, 0.74f, 0.74f, 1f);
+                    }
                 }
                 else
                 {
                     _buttonRenderer.sprite = Procedural2DSpriteFactory.GetOrCreateDoorButtonSprite(isClosed, isBrokenOrLocked);
+                    if (isBrokenOrLocked)
+                    {
+                        float pulse = (Mathf.Sin(Time.time * 8f) + 1f) * 0.5f;
+                        _buttonRenderer.color = Color.Lerp(new Color(1f, 0.45f, 0f, 1f), new Color(1f, 0.8f, 0.2f, 1f), pulse);
+                    }
+                    else if (isClosed)
+                    {
+                        _buttonRenderer.color = new Color(1.0f, 0.18f, 0.18f, 1.0f);
+                    }
+                    else
+                    {
+                        _buttonRenderer.color = new Color(0.68f, 0.12f, 0.12f, 1.0f);
+                    }
                 }
+            }
 
-                if (isBrokenOrLocked)
+            if ((force || _buttonRenderer.sprite != prevSprite) && _buttonRenderer.sprite != null)
+            {
+                if (hasCustomSprite && _targetWorldSize.x > 0f && _targetWorldSize.y > 0f)
                 {
-                    float pulse = (Mathf.Sin(Time.time * 8f) + 1f) * 0.5f;
-                    _buttonRenderer.color = Color.Lerp(new Color(1f, 0.45f, 0f, 1f), new Color(1f, 0.8f, 0.2f, 1f), pulse);
-                }
-                else if (isClosed)
-                {
-                    _buttonRenderer.color = new Color(1.0f, 0.18f, 0.18f, 1.0f); // High-voltage vivid red (Closed)
+                    OfficeArtManager.FitSpriteRendererToSize(_buttonRenderer, _targetWorldSize);
                 }
                 else
                 {
-                    _buttonRenderer.color = new Color(0.68f, 0.12f, 0.12f, 1.0f); // Industrial dark crimson (Open)
+                    transform.localScale = Vector3.one;
+                }
+
+                if (_boxCollider != null)
+                {
+                    Vector2 boundsSize = _buttonRenderer.sprite.bounds.size;
+                    _boxCollider.size = new Vector3(boundsSize.x, boundsSize.y, 0.12f);
                 }
             }
         }

@@ -111,11 +111,13 @@ namespace Tylerland.Office
             // Play voice clip if available
             if (config.phoneCallClip != null && _audioSource != null)
             {
+                _audioSource.volume = AudioSettingsManager.VoiceVolume;
                 _audioSource.clip = config.phoneCallClip;
                 _audioSource.Play();
 
                 while (_audioSource.isPlaying)
                 {
+                    _audioSource.volume = AudioSettingsManager.VoiceVolume;
                     yield return null;
                 }
             }

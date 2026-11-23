@@ -38,7 +38,7 @@ namespace Tylerland.Office
         public SpriteRenderer corridorSpriteRenderer;
 
         [Tooltip("World width and height (in meters) to auto-fit the 2D corridor backdrop")]
-        public Vector2 corridorTargetSize = new Vector2(4.5f, 3.4f);
+        public Vector2 corridorTargetSize = new Vector2(2.54f, 3.30f);
 
         [Tooltip("Legacy 3D corridor tunnel object (always hidden so the scene is 100% 2D sprites)")]
         public GameObject placeholder3DCorridorObject;
@@ -70,8 +70,18 @@ namespace Tylerland.Office
         [Tooltip("Optional 2D Sprite for the security desk")]
         [SerializeField] private Sprite _deskSprite;
         [SerializeField] private SpriteRenderer _deskSpriteRenderer;
-        [SerializeField] private Vector2 _deskTargetSize = new Vector2(3.2f, 1.3f);
+        [SerializeField] private Vector2 _deskTargetSize = new Vector2(2.30f, 0.44f);
         [SerializeField] private GameObject _placeholder3DDesk;
+
+        [Header("Tabletop Props (office.table.1)")]
+        [SerializeField] private Sprite _deskLampSprite;
+        [SerializeField] private SpriteRenderer _deskLampRenderer;
+        [SerializeField] private Sprite _deskClockSprite;
+        [SerializeField] private SpriteRenderer _deskClockRenderer;
+        [SerializeField] private Sprite _deskPlushieSprite;
+        [SerializeField] private SpriteRenderer _deskPlushieRenderer;
+        [SerializeField] private Sprite _deskMonitorSprite;
+        [SerializeField] private SpriteRenderer _deskMonitorRenderer;
 
         [Tooltip("Optional 2D Sprite for the office floor")]
         [SerializeField] private Sprite _floorSprite;
@@ -102,6 +112,12 @@ namespace Tylerland.Office
         [SerializeField] private Color _officeInteriorTint = new Color(0.88f, 0.88f, 0.94f, 1.0f);
 
         public DirectionalWallArtSlot[] WallSlots => _wallSlots;
+
+        private void OnEnable()
+        {
+            EnsureFourSlotsInitialized();
+            ApplyAllArt();
+        }
 
         private void Awake()
         {
@@ -209,10 +225,10 @@ namespace Tylerland.Office
 
             Vector3[] corridor2DPositions =
             {
-                new Vector3(-5.65f, 1.75f, 0f),
-                new Vector3(0f, 1.75f, 5.65f),
-                new Vector3(5.65f, 1.75f, 0f),
-                new Vector3(0f, 1.75f, -5.65f)
+                new Vector3(-5.65f, 1.29f, 0f),
+                new Vector3(0f, 1.29f, 5.65f),
+                new Vector3(5.65f, 1.29f, 0f),
+                new Vector3(0f, 1.29f, -5.65f)
             };
 
             string[] dirLabels = { "Left_Erle", "Center_Tyler", "Right_Orville", "Rear_Sandy" };
@@ -253,6 +269,9 @@ namespace Tylerland.Office
 
             // Ensure the 4 physical in-world door and light button panels exist to the right of each doorway
             DoorWallButtonPanel.EnsureAllFourButtonPanelsExist(layerRoot);
+
+            // Ensure the tabletop prop child renderers exist under SecurityDesk_2DSprite
+            EnsureDeskTabletopRenderersExist();
 
             // Hide any stray legacy 3D MeshRenderers in the office environment
             if (root != null)
@@ -369,6 +388,17 @@ namespace Tylerland.Office
                     // 2. Corridor Backdrop 2D Sprite
                     if (slot.corridorSpriteRenderer != null)
                     {
+                        Vector3 corrPos = slot.corridorSpriteRenderer.transform.localPosition;
+                        if (Mathf.Abs(corrPos.y - 1.29f) > 0.05f)
+                        {
+                            corrPos.y = 1.29f;
+                            slot.corridorSpriteRenderer.transform.localPosition = corrPos;
+                        }
+                        if (slot.corridorTargetSize.x > 2.8f || slot.corridorTargetSize.y > 3.6f || slot.corridorTargetSize.y < 3.2f)
+                        {
+                            slot.corridorTargetSize = new Vector2(2.54f, 3.30f);
+                        }
+
                         Sprite activeCorridor = slot.corridorBackdropSprite != null
                             ? slot.corridorBackdropSprite
                             : Procedural2DSpriteFactory.GetOrCreateCorridorSprite(i, dirTint);
@@ -402,13 +432,12 @@ namespace Tylerland.Office
                 }
             }
 
-            // 4. Desk 2D Sprite (Positioned on the Tyler wall side, offset to the side so it does NOT block the central doorway!)
+            // 4. Desk 2D Sprite + Tabletop Props (Lamp, Clock, Plushie, CRT Monitor)
             if (_deskSpriteRenderer != null)
             {
-                // Ensure desk is offset on the Tyler side so it never obstructs the doorway at X = 0
                 if (Mathf.Abs(_deskSpriteRenderer.transform.localPosition.x) < 0.5f)
                 {
-                    _deskSpriteRenderer.transform.localPosition = new Vector3(1.75f, 0.45f, 2.30f);
+                    _deskSpriteRenderer.transform.localPosition = new Vector3(1.35f, 0.50f, 2.30f);
                 }
 
                 Sprite activeDesk = _deskSprite != null
@@ -417,10 +446,21 @@ namespace Tylerland.Office
 
                 _deskSpriteRenderer.sprite = activeDesk;
                 _deskSpriteRenderer.color = _officeInteriorTint;
-                if (activeDesk != null)
+                _deskSpriteRenderer.sortingOrder = 20;
+
+                if (_deskSprite != null)
+                {
+                    Vector2 deskBounds = _deskSprite.bounds.size;
+                    float targetWidth = _deskTargetSize.x > 0.5f ? _deskTargetSize.x : 2.30f;
+                    float uniformScale = deskBounds.x > 0.001f ? (targetWidth / deskBounds.x) : 0.3898f;
+                    _deskSpriteRenderer.transform.localScale = new Vector3(uniformScale, uniformScale, 1f);
+                }
+                else if (activeDesk != null)
                 {
                     FitSpriteRendererToSize(_deskSpriteRenderer, _deskTargetSize);
                 }
+
+                ApplyDeskTabletopProps();
             }
             if (_placeholder3DDesk != null)
             {
@@ -457,6 +497,7 @@ namespace Tylerland.Office
 
                 _ceilingSpriteRenderer.sprite = activeCeiling;
                 _ceilingSpriteRenderer.color = _officeInteriorTint;
+                _ceilingSpriteRenderer.sortingOrder = 11;
                 if (activeCeiling != null)
                 {
                     FitSpriteRendererToSize(_ceilingSpriteRenderer, _ceilingTargetSize);
@@ -470,28 +511,136 @@ namespace Tylerland.Office
         }
 
         private const string DuvarlarFolder = "Assets/Sprites/Duvarlar/";
+        private const string RestOfOfficeFolder = "Assets/Sprites/the rest of the office/";
+        private const string NewCorridorFolder = "Assets/Sprites/office.corridor.dark/";
+        private const string DeskSheetPath = "Assets/Sprites/office.table.1.png";
 
         /// <summary>
-        /// Auto-assigns the artist sprites from Assets/Sprites/Duvarlar to the 4 walls, floor and ceiling
-        /// whenever those slots are empty (editor-side loader).
+        /// Auto-assigns the artist sprites from Assets/Sprites (walls, floor, ceiling,
+        /// corridors, and tabletop props) whenever serialized slots are empty (editor-side loader).
         /// </summary>
         private void LoadDuvarlarSprites()
         {
 #if UNITY_EDITOR
             string[] wallFiles = { "spr_wall_left", "spr_wall_center", "spr_wall_right", "spr_wall_rear" };
+            Sprite darkCorridor = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(NewCorridorFolder + "office.corridor.dark.png")
+                ?? UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(RestOfOfficeFolder + "spr_corridor_dark.png");
+            Sprite litCorridor = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(NewCorridorFolder + "office.corridor.lit.png")
+                ?? UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(RestOfOfficeFolder + "spr_corridor_lit.png");
+
             if (_wallSlots != null)
             {
                 for (int i = 0; i < _wallSlots.Length && i < wallFiles.Length; i++)
                 {
-                    if (_wallSlots[i] != null && _wallSlots[i].wallSprite == null)
+                    if (_wallSlots[i] == null) continue;
+                    if (_wallSlots[i].wallSprite == null)
                         _wallSlots[i].wallSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(DuvarlarFolder + wallFiles[i] + ".png");
+                    if (darkCorridor != null && (_wallSlots[i].corridorBackdropSprite == null || _wallSlots[i].corridorBackdropSprite.name == "spr_corridor_dark"))
+                        _wallSlots[i].corridorBackdropSprite = darkCorridor;
+                    if (litCorridor != null && (_wallSlots[i].corridorLitSprite == null || _wallSlots[i].corridorLitSprite.name == "spr_corridor_lit"))
+                        _wallSlots[i].corridorLitSprite = litCorridor;
                 }
             }
             if (_floorSprite == null)
                 _floorSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(DuvarlarFolder + "spr_floor.png");
             if (_ceilingSprite == null)
                 _ceilingSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(DuvarlarFolder + "spr_ceiling.png");
+
+            if (_deskLampSprite == null) _deskLampSprite = LoadSubSprite(DeskSheetPath, "office.table.1_0");
+            if (_deskClockSprite == null) _deskClockSprite = LoadSubSprite(DeskSheetPath, "office.table.1_1");
+            if (_deskMonitorSprite == null) _deskMonitorSprite = LoadSubSprite(DeskSheetPath, "office.table.1_2");
+            if (_deskPlushieSprite == null) _deskPlushieSprite = LoadSubSprite(DeskSheetPath, "office.table.1_3");
+            if (_deskSprite == null) _deskSprite = LoadSubSprite(DeskSheetPath, "office.table.1_4");
 #endif
+        }
+
+#if UNITY_EDITOR
+        private static Sprite LoadSubSprite(string assetPath, string spriteName)
+        {
+            UnityEngine.Object[] assets = UnityEditor.AssetDatabase.LoadAllAssetsAtPath(assetPath);
+            if (assets == null) return null;
+            for (int i = 0; i < assets.Length; i++)
+            {
+                if (assets[i] is Sprite sp && sp.name == spriteName)
+                {
+                    return sp;
+                }
+            }
+            return null;
+        }
+#endif
+
+        public void EnsureDeskTabletopRenderersExist()
+        {
+            if (_deskSpriteRenderer == null) return;
+            Transform deskTf = _deskSpriteRenderer.transform;
+
+            if (_deskLampRenderer == null) _deskLampRenderer = FindOrCreatePropRenderer(deskTf, "DeskLamp_2DSprite", 21);
+            if (_deskClockRenderer == null) _deskClockRenderer = FindOrCreatePropRenderer(deskTf, "DigitalClock_2DSprite", 22);
+            if (_deskPlushieRenderer == null) _deskPlushieRenderer = FindOrCreatePropRenderer(deskTf, "TylerPlushie_2DSprite", 22);
+            if (_deskMonitorRenderer == null) _deskMonitorRenderer = FindOrCreatePropRenderer(deskTf, "ComputerMonitor_2DSprite", 21);
+        }
+
+        private static SpriteRenderer FindOrCreatePropRenderer(Transform parent, string childName, int sortingOrder)
+        {
+            Transform existing = parent.Find(childName);
+            if (existing == null)
+            {
+                var go = new GameObject(childName);
+                go.transform.SetParent(parent, false);
+                existing = go.transform;
+            }
+            var sr = existing.GetComponent<SpriteRenderer>();
+            if (sr == null) sr = existing.gameObject.AddComponent<SpriteRenderer>();
+            sr.sortingOrder = sortingOrder;
+            return sr;
+        }
+
+        private void ApplyDeskTabletopProps()
+        {
+            if (_deskSpriteRenderer == null) return;
+            Transform deskTf = _deskSpriteRenderer.transform;
+
+            if (_deskLampRenderer == null) _deskLampRenderer = FindExistingPropRenderer(deskTf, "DeskLamp_2DSprite");
+            if (_deskClockRenderer == null) _deskClockRenderer = FindExistingPropRenderer(deskTf, "DigitalClock_2DSprite");
+            if (_deskPlushieRenderer == null) _deskPlushieRenderer = FindExistingPropRenderer(deskTf, "TylerPlushie_2DSprite");
+            if (_deskMonitorRenderer == null) _deskMonitorRenderer = FindExistingPropRenderer(deskTf, "ComputerMonitor_2DSprite");
+
+            float deskPpu = (_deskSprite != null && _deskSprite.pixelsPerUnit > 0f)
+                ? _deskSprite.pixelsPerUnit
+                : 100f;
+
+            // Exact pixel offsets from mockup relative to table center, converted via actual sprite PPU
+            ApplyProp(_deskLampRenderer, _deskLampSprite, deskPpu, new Vector2(-178.5f, 129.0f), -0.01f, 21);
+            ApplyProp(_deskClockRenderer, _deskClockSprite, deskPpu, new Vector2(-145.5f, 52.5f), -0.02f, 22);
+            ApplyProp(_deskPlushieRenderer, _deskPlushieSprite, deskPpu, new Vector2(15.0f, 71.0f), -0.02f, 22);
+            ApplyProp(_deskMonitorRenderer, _deskMonitorSprite, deskPpu, new Vector2(140.5f, 127.0f), -0.01f, 21);
+        }
+
+        private static SpriteRenderer FindExistingPropRenderer(Transform parent, string childName)
+        {
+            Transform existing = parent.Find(childName);
+            return existing != null ? existing.GetComponent<SpriteRenderer>() : null;
+        }
+
+        private void ApplyProp(SpriteRenderer sr, Sprite sprite, float deskPpu, Vector2 pixelOffset, float localZ, int sortingOrder)
+        {
+            if (sr == null) return;
+            sr.transform.localPosition = new Vector3(pixelOffset.x / deskPpu, pixelOffset.y / deskPpu, localZ);
+            sr.transform.localRotation = Quaternion.identity;
+
+            float propScale = 1f;
+            if (sprite != null && sprite.pixelsPerUnit > 0f)
+            {
+                propScale = deskPpu / sprite.pixelsPerUnit;
+            }
+            sr.transform.localScale = new Vector3(propScale, propScale, 1f);
+            sr.sortingOrder = sortingOrder;
+            if (sprite != null)
+            {
+                sr.sprite = sprite;
+                sr.color = _officeInteriorTint;
+            }
         }
 
         /// <summary>
@@ -515,7 +664,9 @@ namespace Tylerland.Office
                     if (door != null) isLightOn = door.IsLightOn;
                 }
 
-                Color corridorColor = _corridorDarkTint;
+                bool hasSeparateCorridorArt = slot.corridorBackdropSprite != null && slot.corridorLitSprite != null;
+                Color darkCorridorColor = hasSeparateCorridorArt ? new Color(0.85f, 0.86f, 0.92f, 1.0f) : _corridorDarkTint;
+                Color corridorColor = darkCorridorColor;
                 Color animatronicColor = _animatronicSilhouetteTint;
 
                 if (isLightOn)
@@ -525,19 +676,26 @@ namespace Tylerland.Office
                     {
                         flicker = (Mathf.PerlinNoise(Time.time * 24f, i * 10f) > 0.12f) ? 1f : 0.45f;
                     }
-                    corridorColor = Color.Lerp(_corridorDarkTint, _corridorLitTint, flicker);
+                    corridorColor = Color.Lerp(hasSeparateCorridorArt ? new Color(0.55f, 0.55f, 0.60f, 1f) : _corridorDarkTint, _corridorLitTint, flicker);
                     animatronicColor = Color.Lerp(_animatronicSilhouetteTint, _corridorLitTint, flicker);
                 }
 
                 if (slot.corridorSpriteRenderer != null)
                 {
+                    Sprite targetCorridor = slot.corridorSpriteRenderer.sprite;
                     if (isLightOn && slot.corridorLitSprite != null)
                     {
-                        slot.corridorSpriteRenderer.sprite = slot.corridorLitSprite;
+                        targetCorridor = slot.corridorLitSprite;
                     }
                     else if (slot.corridorBackdropSprite != null)
                     {
-                        slot.corridorSpriteRenderer.sprite = slot.corridorBackdropSprite;
+                        targetCorridor = slot.corridorBackdropSprite;
+                    }
+
+                    if (targetCorridor != null && slot.corridorSpriteRenderer.sprite != targetCorridor)
+                    {
+                        slot.corridorSpriteRenderer.sprite = targetCorridor;
+                        FitSpriteRendererToSize(slot.corridorSpriteRenderer, slot.corridorTargetSize);
                     }
                     slot.corridorSpriteRenderer.color = corridorColor;
                 }

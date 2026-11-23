@@ -26,6 +26,63 @@ namespace Tylerland.Office
         private void Start()
         {
             AutoFindDoorsIfEmpty();
+            GameEvents.OnNightStarted += HandleNightStarted;
+        }
+
+        protected override void OnDestroy()
+        {
+            base.OnDestroy();
+            GameEvents.OnNightStarted -= HandleNightStarted;
+        }
+
+        private void HandleNightStarted(int night)
+        {
+            RefreshAllUpgradesAndResetForNight();
+        }
+
+        public void RefreshAllUpgradesAndResetForNight()
+        {
+            AutoFindDoorsIfEmpty();
+            if (_doors == null) return;
+            for (int i = 0; i < _doors.Length; i++)
+            {
+                if (_doors[i] != null)
+                {
+                    _doors[i].ApplyUpgradeModifiers();
+                    // Restore energy between nights; durability carries over unless repaired in Shop!
+                    if (!_doors[i].IsBroken)
+                    {
+                        _doors[i].ResetDoor();
+                    }
+                }
+            }
+        }
+
+        public void RepairAllDoors()
+        {
+            AutoFindDoorsIfEmpty();
+            if (_doors == null) return;
+            for (int i = 0; i < _doors.Length; i++)
+            {
+                if (_doors[i] != null)
+                {
+                    _doors[i].ApplyUpgradeModifiers();
+                    _doors[i].RepairDoor();
+                }
+            }
+        }
+
+        public void ApplyUpgradesToAllDoors()
+        {
+            AutoFindDoorsIfEmpty();
+            if (_doors == null) return;
+            for (int i = 0; i < _doors.Length; i++)
+            {
+                if (_doors[i] != null)
+                {
+                    _doors[i].ApplyUpgradeModifiers();
+                }
+            }
         }
 
         private void Update()

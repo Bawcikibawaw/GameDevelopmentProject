@@ -14,8 +14,12 @@ namespace Tylerland.Office
     /// 2. Top Button: WHITE for Hallway Blindspot LIGHT
     /// 3. Bottom Button: RED for Security DOOR Shutter
     /// </summary>
+    [ExecuteAlways]
     public class DoorWallButtonPanel : MonoBehaviour
     {
+        private static readonly Vector2 BackplateTargetSize = new Vector2(0.42f, 0.78f);
+        private static readonly Vector2 ButtonTargetSize = new Vector2(0.33f, 0.242f);
+
         [Header("Door Target")]
         [Tooltip("Door index: 0 = Left (Erle), 1 = Center (Tyler), 2 = Right (Orville), 3 = Rear (Sandy)")]
         [Range(0, 3)]
@@ -26,9 +30,103 @@ namespace Tylerland.Office
         [SerializeField] private DoorPhysicalButton _lightButton;
         [SerializeField] private DoorPhysicalButton _doorButton;
 
+        [Header("Artist 2D Sprites")]
+        [SerializeField] private Sprite _backplateSprite;
+        [SerializeField] private Sprite _lightButtonSprite;
+        [SerializeField] private Sprite _doorButtonSprite;
+
         public int DoorIndex => _doorIndex;
         public DoorPhysicalButton LightButton => _lightButton;
         public DoorPhysicalButton DoorButton => _doorButton;
+
+        private void OnEnable()
+        {
+            ApplyArt();
+        }
+
+        private void Awake()
+        {
+            ApplyArt();
+        }
+
+        private void Start()
+        {
+            ApplyArt();
+        }
+
+        private void OnValidate()
+        {
+            ApplyArt();
+        }
+
+        [ContextMenu("Apply Button Panel Sprites")]
+        public void ApplyArt()
+        {
+            LoadButtonSpritesIfMissing();
+
+            if (_backplateRenderer != null)
+            {
+                Sprite plate = _backplateSprite != null
+                    ? _backplateSprite
+                    : Procedural2DSpriteFactory.GetOrCreateButtonPlateSprite();
+                _backplateRenderer.sprite = plate;
+                _backplateRenderer.sortingOrder = 12;
+                if (_backplateSprite != null)
+                {
+                    OfficeArtManager.FitSpriteRendererToSize(_backplateRenderer, BackplateTargetSize);
+                }
+                else
+                {
+                    _backplateRenderer.transform.localScale = Vector3.one;
+                }
+            }
+
+            if (_lightButton != null)
+            {
+                _lightButton.transform.localPosition = new Vector3(0f, 0.163f, -0.02f);
+                _lightButton.SetCustomSprite(_lightButtonSprite, null, ButtonTargetSize);
+            }
+
+            if (_doorButton != null)
+            {
+                _doorButton.transform.localPosition = new Vector3(0f, -0.163f, -0.02f);
+                _doorButton.SetCustomSprite(_doorButtonSprite, null, ButtonTargetSize);
+            }
+        }
+
+        private void LoadButtonSpritesIfMissing()
+        {
+#if UNITY_EDITOR
+            if (_backplateSprite == null)
+            {
+                _backplateSprite = FindSubSprite("Assets/Sprites/buttons/button_back.png", "button_back_0");
+            }
+            if (_lightButtonSprite == null)
+            {
+                _lightButtonSprite = FindSubSprite("Assets/Sprites/buttons/buttons.png", "buttons_0");
+            }
+            if (_doorButtonSprite == null)
+            {
+                _doorButtonSprite = FindSubSprite("Assets/Sprites/buttons/buttons.png", "buttons_1");
+            }
+#endif
+        }
+
+#if UNITY_EDITOR
+        private static Sprite FindSubSprite(string assetPath, string spriteName)
+        {
+            Object[] assets = UnityEditor.AssetDatabase.LoadAllAssetsAtPath(assetPath);
+            if (assets == null) return null;
+            for (int i = 0; i < assets.Length; i++)
+            {
+                if (assets[i] is Sprite sp && sp.name == spriteName)
+                {
+                    return sp;
+                }
+            }
+            return null;
+        }
+#endif
 
         public static DoorWallButtonPanel Create(Transform parent, int doorIndex, Vector3 worldPos, Quaternion worldRot)
         {
@@ -77,6 +175,7 @@ namespace Tylerland.Office
             doorBtn.Setup(doorIndex, false, doorSR);
             panel._doorButton = doorBtn;
 
+            panel.ApplyArt();
             return panel;
         }
 

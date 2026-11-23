@@ -12,12 +12,15 @@ namespace Tylerland.Core
     public class PlayerSettingsData
     {
         [Range(0f, 1f)] public float masterVolume = 1f;
+        [Range(0f, 1f)] public float voiceVolume = 1f;
         [Range(0f, 1f)] public float sfxVolume = 1f;
         [Range(0f, 1f)] public float musicVolume = 0.8f;
         [Range(0.8f, 1.2f)] public float brightness = 1.0f;
         public bool subtitlesEnabled = true;
         public bool reduceFlashing = false;
         public bool screenShakeEnabled = true;
+        public bool showFpsCounter = true;
+        public bool fullscreen = true;
     }
 
     /// <summary>

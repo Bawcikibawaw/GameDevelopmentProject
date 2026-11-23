@@ -46,6 +46,12 @@ namespace Tylerland.Core
         public int damageEagle = 0;
         public int damageSnake = 0;
 
+        // Night on which each animatronic was shot (0 = never shot, 1..6 = permanent Nightmare since that night)
+        public int shotNightTyler = 0;
+        public int shotNightShark = 0;
+        public int shotNightEagle = 0;
+        public int shotNightSnake = 0;
+
         public List<NightHistoryEntry> nightHistory = new List<NightHistoryEntry>();
         public int rngSeed;
 
@@ -60,6 +66,10 @@ namespace Tylerland.Core
             damageShark = 0;
             damageEagle = 0;
             damageSnake = 0;
+            shotNightTyler = 0;
+            shotNightShark = 0;
+            shotNightEagle = 0;
+            shotNightSnake = 0;
             nightHistory.Clear();
             rngSeed = newSeed;
         }
@@ -103,7 +113,72 @@ namespace Tylerland.Core
 
         public bool IsNightmareState(string animatronicId)
         {
-            return GetAnimatronicDamage(animatronicId) > 0;
+            return GetAnimatronicDamage(animatronicId) > 0 || GetShotNight(animatronicId) > 0;
+        }
+
+        public int GetShotNight(string animatronicId)
+        {
+            if (string.IsNullOrEmpty(animatronicId)) return 0;
+            switch (animatronicId.ToLower())
+            {
+                case "tyler": return shotNightTyler;
+                case "orville":
+                case "shark": return shotNightShark;
+                case "erle":
+                case "eagle": return shotNightEagle;
+                case "sandy":
+                case "snake": return shotNightSnake;
+                default: return 0;
+            }
+        }
+
+        public void MarkShotOnNight(string animatronicId, int nightNumber)
+        {
+            if (string.IsNullOrEmpty(animatronicId)) return;
+            nightNumber = Mathf.Max(1, nightNumber);
+            switch (animatronicId.ToLower())
+            {
+                case "tyler":
+                    if (shotNightTyler <= 0) shotNightTyler = nightNumber;
+                    if (damageTyler <= 0) damageTyler = 1;
+                    break;
+                case "orville":
+                case "shark":
+                    if (shotNightShark <= 0) shotNightShark = nightNumber;
+                    if (damageShark <= 0) damageShark = 1;
+                    break;
+                case "erle":
+                case "eagle":
+                    if (shotNightEagle <= 0) shotNightEagle = nightNumber;
+                    if (damageEagle <= 0) damageEagle = 1;
+                    break;
+                case "sandy":
+                case "snake":
+                    if (shotNightSnake <= 0) shotNightSnake = nightNumber;
+                    if (damageSnake <= 0) damageSnake = 1;
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Permanent Nightmare escalation bonus:
+        /// Once shot on night S, the animatronic stays in permanent Nightmare Mode for the entire 5-night cycle
+        /// and its aggressiveness grows drastically faster every subsequent night (+2 same night, +4, +7, +10, +13...).
+        /// </summary>
+        public int GetNightmareNightBonus(string animatronicId, int currentNight)
+        {
+            int shotNight = GetShotNight(animatronicId);
+            if (shotNight <= 0)
+            {
+                return IsNightmareState(animatronicId) ? 4 : 0;
+            }
+            int nightsSinceShot = Mathf.Max(0, currentNight - shotNight);
+            return nightsSinceShot == 0 ? 2 : (1 + nightsSinceShot * 3);
+        }
+
+        public bool HasUsedWeaponThisRun(string weaponId)
+        {
+            return !string.IsNullOrEmpty(weaponId) && weaponsUsed.Contains(weaponId);
         }
 
         /// <summary>
@@ -112,7 +187,7 @@ namespace Tylerland.Core
         /// have been transformed into their Nightmare forms within the SAME run.
         /// </summary>
         public bool AllFourNightmaresActive =>
-            damageTyler > 0 && damageShark > 0 && damageEagle > 0 && damageSnake > 0;
+            IsNightmareState("tyler") && IsNightmareState("orville") && IsNightmareState("erle") && IsNightmareState("sandy");
     }
 
     /// <summary>
@@ -122,8 +197,8 @@ namespace Tylerland.Core
     public class RunManager : Singleton<RunManager>
     {
         [Header("Run Configuration")]
-        [Tooltip("Total nights required to win a full run (Nights 1-5 + Night 6 Boss)")]
-        [SerializeField] private int _totalNights = 6;
+        [Tooltip("Standard 5-night shift cycle (extends to Night 6 True Boss if all 4 Nightmares are active)")]
+        [SerializeField] private int _totalNights = 5;
 
         [Tooltip("Default Economy config for salary and repair calculations")]
         [SerializeField] private EconomyConfig _economyConfig;
@@ -133,7 +208,7 @@ namespace Tylerland.Core
 
         public RunState State => _runState;
         public int CurrentNight => _runState.currentNight;
-        public int TotalNights => _totalNights;
+        public int TotalNights => _runState.AllFourNightmaresActive ? Mathf.Max(_totalNights, 6) : _totalNights;
         public int Money => _runState.money;
         public EconomyConfig Economy => _economyConfig;
 
@@ -183,17 +258,23 @@ namespace Tylerland.Core
                         _runState.weaponsOwned.Add(w);
                     }
                 }
+
+                // Permanent Soul Coin Shop bonus: starting shift stipend
+                if (MetaProgressionManager.Instance.HasUnlockedSoulItem("SOUL_START_CASH"))
+                {
+                    _runState.money += 100;
+                }
             }
 
-            Debug.Log($"[RunManager] New run started. RNG Seed={seed}, Night={_runState.currentNight}, Restored Weapons={_runState.weaponsOwned.Count}");
+            Debug.Log($"[RunManager] New 5-night run started. RNG Seed={seed}, Night={_runState.currentNight}, Restored Weapons={_runState.weaponsOwned.Count}, Cash=${_runState.money}");
         }
 
         /// <summary>
-        /// Advances to the next night after salary and shop phases.
+        /// Advances to the next night after salary and between-nights hub phases.
         /// </summary>
         public void AdvanceToNextNight()
         {
-            if (_runState.currentNight >= _totalNights)
+            if (_runState.currentNight >= TotalNights)
             {
                 Debug.Log("[RunManager] Final Night survived! Run victory achieved!");
                 GameEvents.TriggerRunWon();
@@ -205,7 +286,7 @@ namespace Tylerland.Core
             }
 
             _runState.currentNight++;
-            Debug.Log($"[RunManager] Advancing to Night {_runState.currentNight} / {_totalNights}");
+            Debug.Log($"[RunManager] Advancing to Night {_runState.currentNight} / {TotalNights}");
             GameEvents.TriggerNightStarted(_runState.currentNight);
         }
         #endregion
@@ -270,6 +351,12 @@ namespace Tylerland.Core
             int updated = Mathf.Clamp(current + levels, 0, 3);
             _runState.SetAnimatronicDamage(animatronicId, updated);
             Debug.Log($"[RunManager] {animatronicId} damage increased to level {updated}/3");
+        }
+
+        public void MarkAnimatronicShot(string animatronicId, int nightNumber)
+        {
+            _runState.MarkShotOnNight(animatronicId, nightNumber);
+            Debug.LogWarning($"[RunManager] {animatronicId} SHOT on Night {nightNumber}! PERMANENT NIGHTMARE MODE active for remainder of this 5-night cycle.");
         }
         #endregion
 

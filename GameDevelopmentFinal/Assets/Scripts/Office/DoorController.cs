@@ -27,6 +27,7 @@ namespace Tylerland.Office
     /// Manages an individual office security door with resource drain, durability loss,
     /// lockout mechanics, and 3D physical movement.
     /// </summary>
+    [ExecuteAlways]
     public class DoorController : MonoBehaviour
     {
         [Header("Door Identification")]
@@ -45,10 +46,13 @@ namespace Tylerland.Office
         [SerializeField] private MeshRenderer _placeholder3DSlabRenderer;
 
         [Tooltip("Target width and height in meters for the 2D door sprite")]
-        [SerializeField] private Vector2 _doorSpriteTargetSize = new Vector2(2.0f, 2.8f);
+        [SerializeField] private Vector2 _doorSpriteTargetSize = new Vector2(2.35f, 2.85f);
 
         [Tooltip("Hand-drawn sprite for the door shutter (used when closed or while sliding)")]
         [SerializeField] private Sprite _closedSprite;
+
+        [Tooltip("Hand-drawn sprite for damaged door shutter (used when durability is <= 50%)")]
+        [SerializeField] private Sprite _damagedSprite;
 
         [Tooltip("Optional separate sprite when door is fully OPEN (leave empty if using sliding shutter)")]
         [SerializeField] private Sprite _openSprite;
@@ -133,22 +137,54 @@ namespace Tylerland.Office
         private float _regenMultiplier = 1f;
         private float _durabilityMaxMultiplier = 1f;
 
+        private void OnEnable()
+        {
+            LoadShutterSpritesIfMissing();
+            UpdateSpriteForState(_state);
+        }
+
         private void OnValidate()
         {
+            LoadShutterSpritesIfMissing();
             UpdateSpriteForState(_state);
         }
 
         private void Start()
         {
+            if (!Application.isPlaying)
+            {
+                LoadShutterSpritesIfMissing();
+                UpdateSpriteForState(_state);
+                return;
+            }
+
             if (_doorMeshTransform == null)
             {
                 _doorMeshTransform = transform;
             }
 
+            LoadShutterSpritesIfMissing();
             ApplyMotionStylePositions();
             ResetDoor();
             ApplyUpgradeModifiers();
             UpdateSpriteForState(_state);
+        }
+
+        private void LoadShutterSpritesIfMissing()
+        {
+            if (_doorSpriteTargetSize.x < 2.25f)
+            {
+                _doorSpriteTargetSize = new Vector2(2.35f, 2.85f);
+            }
+#if UNITY_EDITOR
+            const string folder = "Assets/Sprites/the rest of the office/";
+            if (_closedSprite == null)
+                _closedSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(folder + "spr_door_shutter_01.png");
+            if (_damagedSprite == null)
+                _damagedSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(folder + "spr_door_shutter_02.png");
+            if (_brokenSprite == null)
+                _brokenSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(folder + "spr_door_shutter_03.png");
+#endif
         }
 
         public void ApplyMotionStylePositions()
@@ -175,6 +211,7 @@ namespace Tylerland.Office
 
         private void Update()
         {
+            if (!Application.isPlaying) return;
             if (!GameStateRules.IsGameplayActive(GameFlowManager.HasInstance ? GameFlowManager.Instance.CurrentState : GameState.NightActive))
                 return;
             if (Time.timeScale <= 0f)
@@ -317,6 +354,7 @@ namespace Tylerland.Office
             }));
 
             _state = DoorState.Closing;
+            UpdateSpriteForState(DoorState.Closing);
             return true;
         }
 
@@ -371,9 +409,16 @@ namespace Tylerland.Office
 
             if (_doorSpriteRenderer == null) return;
 
-            Sprite activeSprite = _closedSprite != null
-                ? _closedSprite
-                : Procedural2DSpriteFactory.GetOrCreateDoorShutterSprite(_doorIndex);
+            _doorSpriteRenderer.enabled = (state != DoorState.Open);
+
+            float effectiveMaxDurability = Mathf.Max(1f, _durabilityMax * _durabilityMaxMultiplier);
+            bool isDamaged = _currentDurability <= effectiveMaxDurability * 0.5f;
+
+            Sprite activeSprite = (isDamaged && _damagedSprite != null)
+                ? _damagedSprite
+                : (_closedSprite != null
+                    ? _closedSprite
+                    : Procedural2DSpriteFactory.GetOrCreateDoorShutterSprite(_doorIndex));
 
             if (state == DoorState.Broken && _brokenSprite != null)
             {
@@ -421,6 +466,10 @@ namespace Tylerland.Office
             {
                 BreakDoor();
             }
+            else
+            {
+                UpdateSpriteForState(_state);
+            }
         }
 
         public void ApplyEnergyDrain(float amount)
@@ -438,9 +487,21 @@ namespace Tylerland.Office
 
         private void BreakDoor()
         {
+            if (_movementRoutine != null)
+            {
+                StopCoroutine(_movementRoutine);
+                _movementRoutine = null;
+            }
+
             _state = DoorState.Broken;
-            Debug.LogError($"[Door {_doorIndex}] DURABILITY BROKEN! Door remains permanently open until repaired!");
-            OpenDoorInternal(true);
+            if (_doorMeshTransform != null)
+            {
+                _doorMeshTransform.localPosition = _closedLocalPosition;
+            }
+            SetLight(false);
+            UpdateSpriteForState(DoorState.Broken);
+            Debug.LogError($"[Door {_doorIndex}] DURABILITY BROKEN! Shutter breached — animatronics can pass through until repaired!");
+            GameEvents.TriggerDoorOpened(_doorIndex);
         }
 
         public void RepairDoor()
@@ -450,6 +511,7 @@ namespace Tylerland.Office
             _state = DoorState.Open;
             _isLockedOut = false;
             _doorMeshTransform.localPosition = _openLocalPosition;
+            UpdateSpriteForState(_state);
             Debug.Log($"[Door {_doorIndex}] Repaired to 100%!");
             GameEvents.TriggerDoorStatsChanged(_doorIndex, _currentEnergy, _currentDurability);
         }
@@ -469,31 +531,49 @@ namespace Tylerland.Office
         #region Shop Upgrade Modifiers
         public void ApplyUpgradeModifiers()
         {
-            if (!RunManager.HasInstance) return;
-            var run = RunManager.Instance;
+            // Reset to baseline before computing modifiers so re-applying after Between-Nights shopping is idempotent
+            _energyMaxMultiplier = 1f;
+            _drainMultiplier = 1f;
+            _regenMultiplier = 1f;
+            _durabilityMaxMultiplier = 1f;
+            _closeDuration = 0.25f;
+            _energyDrainLight = 1.0f;
 
-            // Example upgrade bindings from Roadmap 6.2:
-            // "Door Battery" (+20 energyMax)
-            if (run.HasUpgrade("DOOR_BATTERY_3")) _energyMaxMultiplier = 1.6f;
-            else if (run.HasUpgrade("DOOR_BATTERY_2")) _energyMaxMultiplier = 1.4f;
-            else if (run.HasUpgrade("DOOR_BATTERY_1")) _energyMaxMultiplier = 1.2f;
+            if (RunManager.HasInstance)
+            {
+                var run = RunManager.Instance;
 
-            // "Efficient Motor" (-20% energyDrainClosed)
-            if (run.HasUpgrade("EFFICIENT_MOTOR_2")) _drainMultiplier = 0.6f;
-            else if (run.HasUpgrade("EFFICIENT_MOTOR_1")) _drainMultiplier = 0.8f;
+                // "Door Battery" (+20% / +40% / +60% energyMax)
+                if (run.HasUpgrade("DOOR_BATTERY_3")) _energyMaxMultiplier = 1.6f;
+                else if (run.HasUpgrade("DOOR_BATTERY_2")) _energyMaxMultiplier = 1.4f;
+                else if (run.HasUpgrade("DOOR_BATTERY_1")) _energyMaxMultiplier = 1.2f;
 
-            // "Fast Recharge" (+25% energyRegenOpen)
-            if (run.HasUpgrade("FAST_RECHARGE_2")) _regenMultiplier = 1.5f;
-            else if (run.HasUpgrade("FAST_RECHARGE_1")) _regenMultiplier = 1.25f;
+                // "Efficient Motor" (-20% / -40% energyDrainClosed)
+                if (run.HasUpgrade("EFFICIENT_MOTOR_2")) _drainMultiplier = 0.6f;
+                else if (run.HasUpgrade("EFFICIENT_MOTOR_1")) _drainMultiplier = 0.8f;
 
-            // "Reinforced Plating" (+25 durabilityMax)
-            if (run.HasUpgrade("REINFORCED_PLATING_3")) _durabilityMaxMultiplier = 1.75f;
-            else if (run.HasUpgrade("REINFORCED_PLATING_2")) _durabilityMaxMultiplier = 1.5f;
-            else if (run.HasUpgrade("REINFORCED_PLATING_1")) _durabilityMaxMultiplier = 1.25f;
+                // "Fast Recharge" (+25% / +50% energyRegenOpen)
+                if (run.HasUpgrade("FAST_RECHARGE_2")) _regenMultiplier = 1.5f;
+                else if (run.HasUpgrade("FAST_RECHARGE_1")) _regenMultiplier = 1.25f;
 
-            // "Quick Slam" (-20% closeDuration)
-            if (run.HasUpgrade("QUICK_SLAM_2")) _closeDuration = 0.16f;
-            else if (run.HasUpgrade("QUICK_SLAM_1")) _closeDuration = 0.20f;
+                // "Reinforced Plating" (+25% / +50% / +75% durabilityMax)
+                if (run.HasUpgrade("REINFORCED_PLATING_3")) _durabilityMaxMultiplier = 1.75f;
+                else if (run.HasUpgrade("REINFORCED_PLATING_2")) _durabilityMaxMultiplier = 1.5f;
+                else if (run.HasUpgrade("REINFORCED_PLATING_1")) _durabilityMaxMultiplier = 1.25f;
+
+                // "Quick Slam" (-20% / -36% closeDuration)
+                if (run.HasUpgrade("QUICK_SLAM_2")) _closeDuration = 0.16f;
+                else if (run.HasUpgrade("QUICK_SLAM_1")) _closeDuration = 0.20f;
+            }
+
+            // Permanent Soul Coin Shop meta-upgrades
+            if (MetaProgressionManager.HasInstance)
+            {
+                var meta = MetaProgressionManager.Instance;
+                if (meta.HasUnlockedSoulItem("SOUL_EXTRA_ENERGY")) _energyMaxMultiplier *= 1.15f;
+                if (meta.HasUnlockedSoulItem("SOUL_EXTRA_DURABILITY")) _durabilityMaxMultiplier *= 1.20f;
+                if (meta.HasUnlockedSoulItem("SOUL_LIGHT_EFFICIENCY")) _energyDrainLight = 0.5f;
+            }
         }
         #endregion
     }

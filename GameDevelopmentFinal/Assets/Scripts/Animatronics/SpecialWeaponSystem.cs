@@ -118,13 +118,25 @@ namespace Tylerland.Animatronics
                 ? unit.Config.counterWeaponId
                 : GetDefaultWeaponForDoor(doorIndex);
 
-            if (!RunManager.Instance.State.weaponsOwned.Contains(requiredWeapon))
+            if (RunManager.Instance.State.HasUsedWeaponThisRun(requiredWeapon))
             {
-                ShowStatus($"Missing '{requiredWeapon}' for {unit.DisplayName}! (Press 'G' to unlock/restore weapons)");
+                ShowStatus($"{requiredWeapon} already spent for this 5-night cycle! Restores on next run.");
                 return false;
             }
 
-            // 1. Consume the 1-per-run weapon use
+            if (RunManager.Instance.State.IsNightmareState(unit.AnimatronicId))
+            {
+                ShowStatus($"{unit.DisplayName} is already in PERMANENT NIGHTMARE MODE!");
+                return false;
+            }
+
+            if (!RunManager.Instance.State.weaponsOwned.Contains(requiredWeapon))
+            {
+                ShowStatus($"Locked: '{requiredWeapon}'! Unlock it in the Soul Coin Shop or Between-Nights Minigame.");
+                return false;
+            }
+
+            // 1. Consume the 1-per-5-night-cycle weapon use
             RunManager.Instance.UseWeapon(requiredWeapon);
 
             // 2. Interrupt active kill countdown in AttackResolver
@@ -133,8 +145,10 @@ namespace Tylerland.Animatronics
                 AttackResolver.Instance.CancelThreatForAnimatronic(unit.AnimatronicId);
             }
 
-            // 3. Inflict damage & trigger Nightmare state in RunState
+            // 3. Inflict damage & lock into PERMANENT Nightmare Mode with compounding per-night aggression
+            int shotNight = RunManager.Instance.CurrentNight;
             RunManager.Instance.InflictDamage(unit.AnimatronicId, 1);
+            RunManager.Instance.MarkAnimatronicShot(unit.AnimatronicId, shotNight);
             unit.OnHitBySpecialWeapon();
             unit.RecalculateEffectiveAI(NightClock.HasInstance ? NightClock.Instance.HourBlendFactor : 0f);
 
@@ -144,7 +158,7 @@ namespace Tylerland.Animatronics
                 MetaProgressionManager.Instance.AddSoulCoins(1);
             }
 
-            string msg = $"⚡ Fired {requiredWeapon} at {unit.DisplayName}! Attack interrupted -> NIGHTMARE FORM TRIGGERED!";
+            string msg = $"⚡ Fired {requiredWeapon} (SPENT FOR RUN) at {unit.DisplayName}! PERMANENT NIGHTMARE MODE -> Aggression will surge every night!";
             if (RunManager.Instance.State.AllFourNightmaresActive)
             {
                 msg = "🔥 ALL 4 NIGHTMARES TRIGGERED IN THIS RUN! TRUE ENDING BOSS ROUTE UNLOCKED!";

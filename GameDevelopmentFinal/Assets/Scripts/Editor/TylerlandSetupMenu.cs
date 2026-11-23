@@ -11,9 +11,130 @@ namespace Tylerland.Editor
     /// Editor automation tool that sets up the project configs and 100% 2D Sprite scene hierarchy with 1 click.
     /// Accessible via top menu bar: 'Tylerland'
     /// </summary>
+    [InitializeOnLoad]
     public static class TylerlandSetupMenu
     {
         private const string CONFIG_FOLDER = "Assets/ScriptableObjects";
+
+        static TylerlandSetupMenu()
+        {
+            EditorApplication.delayCall += SyncOpenSceneSpritesIfNeeded;
+        }
+
+        [MenuItem("Tylerland/3. Sync Office Sprite Assets Into Scene", false, 3)]
+        public static void SyncOfficeSpriteAssetsMenu()
+        {
+            SyncOpenSceneSprites(force: true);
+        }
+
+        private static void SyncOpenSceneSpritesIfNeeded()
+        {
+            SyncOpenSceneSprites(force: false);
+        }
+
+        private static void EnsureSingleSpriteImport(string assetPath)
+        {
+            var importer = AssetImporter.GetAtPath(assetPath) as TextureImporter;
+            if (importer != null && (importer.textureType != TextureImporterType.Sprite || importer.spriteImportMode != SpriteImportMode.Single))
+            {
+                importer.textureType = TextureImporterType.Sprite;
+                importer.spriteImportMode = SpriteImportMode.Single;
+                importer.alphaIsTransparency = true;
+                importer.SaveAndReimport();
+            }
+        }
+
+        private static void SyncOpenSceneSprites(bool force)
+        {
+            if (EditorApplication.isPlayingOrWillChangePlaymode || Application.isBatchMode)
+            {
+                return;
+            }
+
+            var artMgr = Object.FindFirstObjectByType<Tylerland.Office.OfficeArtManager>();
+            if (artMgr == null) return;
+
+            var flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+            var deskSR = typeof(Tylerland.Office.OfficeArtManager).GetField("_deskSpriteRenderer", flags)?.GetValue(artMgr) as SpriteRenderer;
+            var deskLampSR = typeof(Tylerland.Office.OfficeArtManager).GetField("_deskLampRenderer", flags)?.GetValue(artMgr) as SpriteRenderer;
+            var ceilSR = typeof(Tylerland.Office.OfficeArtManager).GetField("_ceilingSpriteRenderer", flags)?.GetValue(artMgr) as SpriteRenderer;
+            EnsureSingleSpriteImport("Assets/Sprites/office.corridor.dark/office.corridor.dark.png");
+            EnsureSingleSpriteImport("Assets/Sprites/office.corridor.dark/office.corridor.lit.png");
+
+            bool missingOrStaleCorridors = artMgr.WallSlots != null && artMgr.WallSlots.Length > 0 && artMgr.WallSlots[0] != null
+                && (artMgr.WallSlots[0].corridorTargetSize.x > 2.8f
+                    || artMgr.WallSlots[0].corridorTargetSize.y > 3.6f
+                    || artMgr.WallSlots[0].corridorTargetSize.y < 3.2f
+                    || artMgr.WallSlots[0].corridorBackdropSprite == null
+                    || artMgr.WallSlots[0].corridorBackdropSprite.name != "office.corridor.dark"
+                    || artMgr.WallSlots[0].corridorLitSprite == null
+                    || artMgr.WallSlots[0].corridorLitSprite.name != "office.corridor.lit");
+            bool staleCeilingOrder = ceilSR != null && ceilSR.sortingOrder < 11;
+            bool missingOrUnscaledTableProps = deskSR != null && (
+                deskLampSR == null
+                || deskSR.transform.Find("DeskLamp_2DSprite") == null
+                || Mathf.Abs(deskLampSR.transform.localPosition.x) < 5f
+                || deskSR.transform.localPosition.y < 0.48f);
+
+            if (!force && !missingOrUnscaledTableProps && !missingOrStaleCorridors && !staleCeilingOrder)
+            {
+                artMgr.ApplyAllArt();
+                foreach (var p in Object.FindObjectsByType<Tylerland.Office.DoorWallButtonPanel>(FindObjectsSortMode.None))
+                    p.ApplyArt();
+                return;
+            }
+
+            if (deskSR != null)
+            {
+                Undo.RecordObject(deskSR.transform, "Update Desk Position & Props");
+                deskSR.transform.localPosition = new Vector3(1.35f, 0.50f, 2.30f);
+                EditorUtility.SetDirty(deskSR.transform);
+            }
+
+            var deskTargetField = typeof(Tylerland.Office.OfficeArtManager).GetField("_deskTargetSize", flags);
+            if (deskTargetField != null)
+            {
+                deskTargetField.SetValue(artMgr, new Vector2(2.30f, 0.44f));
+            }
+
+            if (artMgr.WallSlots != null)
+            {
+                foreach (var slot in artMgr.WallSlots)
+                {
+                    if (slot != null)
+                    {
+                        slot.corridorTargetSize = new Vector2(2.54f, 3.30f);
+                    }
+                }
+            }
+
+            artMgr.EnsureDeskTabletopRenderersExist();
+            artMgr.ApplyAllArt();
+            EditorUtility.SetDirty(artMgr);
+
+            foreach (var panel in Object.FindObjectsByType<Tylerland.Office.DoorWallButtonPanel>(FindObjectsSortMode.None))
+            {
+                panel.ApplyArt();
+                EditorUtility.SetDirty(panel);
+            }
+
+            foreach (var door in Object.FindObjectsByType<Tylerland.Office.DoorController>(FindObjectsSortMode.None))
+            {
+                var loadMethod = typeof(Tylerland.Office.DoorController).GetMethod("LoadShutterSpritesIfMissing", flags);
+                var updateMethod = typeof(Tylerland.Office.DoorController).GetMethod("UpdateSpriteForState", flags);
+                loadMethod?.Invoke(door, null);
+                updateMethod?.Invoke(door, new object[] { door.State });
+                EditorUtility.SetDirty(door);
+            }
+
+            var activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            if (activeScene.IsValid())
+            {
+                UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(activeScene);
+                UnityEditor.SceneManagement.EditorSceneManager.SaveScene(activeScene);
+                Debug.Log("[Tylerland] Synced all Office sprites (Corridors, Door Shutters, Buttons, Desk + Tabletop Props) into SampleScene.");
+            }
+        }
 
         [MenuItem("Tylerland/1. Generate Default Config Assets (Nights 1-6, Economy & Animatronics)", false, 1)]
         public static void GenerateDefaultConfigs()
@@ -360,21 +481,21 @@ namespace Tylerland.Editor
             light.intensity = 1.3f;
 
             // 3. 100% 2D Sprite Desk, Floor & Ceiling Layers (Zero 3D Cubes!)
-            // Placed on the Tyler animatronic side (Center), offset to the side at X = 1.75m so it does NOT block the doorway at X = 0!
+            // Placed on the Tyler animatronic side (Center), offset to the side at X = 1.35m so it does NOT block the doorway or wall buttons!
             var desk2DObj = new GameObject("SecurityDesk_2DSprite");
             desk2DObj.transform.SetParent(officeRoot.transform, false);
-            desk2DObj.transform.localPosition = new Vector3(1.75f, 0.45f, 2.30f);
+            desk2DObj.transform.localPosition = new Vector3(1.35f, 0.50f, 2.30f);
             desk2DObj.transform.localRotation = Quaternion.identity;
             var deskSR = desk2DObj.AddComponent<SpriteRenderer>();
             deskSR.sortingOrder = 20;
 
-            // Fixed Computer Terminal sitting on the desk on the Tyler animatronic side
+            // Computer monitor & tabletop props are created and positioned to match the desk mockup via OfficeArtManager
             var comp2DObj = new GameObject("ComputerMonitor_2DSprite");
             comp2DObj.transform.SetParent(desk2DObj.transform, false);
-            comp2DObj.transform.localPosition = new Vector3(0, 0.45f, 0);
+            comp2DObj.transform.localPosition = new Vector3(1.405f, 1.270f, -0.01f);
             comp2DObj.transform.localRotation = Quaternion.identity;
             var compSR = comp2DObj.AddComponent<SpriteRenderer>();
-            compSR.sortingOrder = 22;
+            compSR.sortingOrder = 21;
 
             var floor2DObj = new GameObject("Floor_2DSprite");
             floor2DObj.transform.SetParent(officeRoot.transform, false);
@@ -388,7 +509,7 @@ namespace Tylerland.Editor
             ceiling2DObj.transform.localPosition = new Vector3(0, 3.39f, 0);
             ceiling2DObj.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
             var ceilingSR = ceiling2DObj.AddComponent<SpriteRenderer>();
-            ceilingSR.sortingOrder = -10;
+            ceilingSR.sortingOrder = 11;
 
             // 4. 2D Sprite Doors (GDD Section 4: Left=Erle, Center=Tyler, Right=Orville, Rear=Sandy)
             var doorControllers = new Tylerland.Office.DoorController[4];
@@ -441,6 +562,7 @@ namespace Tylerland.Editor
 
             // 6. 100% 2D Sprite Walls, Corridors & Doorway Blindspots
             Build2DOfficeSpriteLayers(officeRoot.transform, artMgr, deskSR, floorSR, ceilingSR);
+            artMgr.EnsureDeskTabletopRenderersExist();
             artMgr.ApplyAllArt();
 
             // Wire doors into DoorSystemManager
@@ -511,10 +633,10 @@ namespace Tylerland.Editor
             // Corridor Backdrop 2D positions (5.85m from center, behind the doorway animatronic)
             Vector3[] corridor2DPositions =
             {
-                new Vector3(-5.85f, 1.75f, 0f),
-                new Vector3(0f, 1.75f, 5.85f),
-                new Vector3(5.85f, 1.75f, 0f),
-                new Vector3(0f, 1.75f, -5.85f)
+                new Vector3(-5.85f, 1.29f, 0f),
+                new Vector3(0f, 1.29f, 5.85f),
+                new Vector3(5.85f, 1.29f, 0f),
+                new Vector3(0f, 1.29f, -5.85f)
             };
 
             string[] dirLabels = { "Left_Erle", "Center_Tyler", "Right_Orville", "Rear_Sandy" };
@@ -595,7 +717,7 @@ namespace Tylerland.Editor
             var spriteRenderer = door2DSpriteObj.AddComponent<SpriteRenderer>();
             spriteRenderer.sortingOrder = 5;
             spriteRenderer.sprite = Tylerland.Office.Procedural2DSpriteFactory.GetOrCreateDoorShutterSprite(index);
-            Tylerland.Office.OfficeArtManager.FitSpriteRendererToSize(spriteRenderer, new Vector2(2.0f, 2.8f));
+            Tylerland.Office.OfficeArtManager.FitSpriteRendererToSize(spriteRenderer, new Vector2(2.35f, 2.85f));
 
             // Controller component
             var controller = doorFrameObj.AddComponent<Tylerland.Office.DoorController>();
